@@ -1,13 +1,13 @@
 ---
 id: 006
 title: Red Team agent (MVP single-turn generation)
-status: tests-authored # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [002, 003, 005]
 branch: ticket/006-red-team
 base_branch: main
 test_command: ".venv/bin/pytest tests/test_red_team.py -q"
 full_suite_command: ".venv/bin/pytest -q"
-attempts: 0
+attempts: 1
 ---
 
 ## Description
