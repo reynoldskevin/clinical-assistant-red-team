@@ -6,3 +6,10 @@ TICKETS.md
 TIME_ESTIMATE.md
 *ARCHITECTURE_DEFENSE*
 *DEMO_SCRIPT*
+
+# Python artifacts
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.env
