@@ -162,10 +162,16 @@ persona hijack, trust-boundary violation).
   Adapter and asks the Judge for verdicts (meaningful pass, not behavior change).
 - **Target Adapter** — *Deterministic boundary.* The only egress to the live Co-Pilot. Holds
   target credentials, normalizes the HTTP/chat contract (single- and multi-turn), records raw
-  request/response for replay. (Exact Co-Pilot contract pinned in an early ticket.)
+  request/response for replay. (Exact Co-Pilot contract pinned in an early ticket.) **Enforces a
+  target allowlist** — a run names a pre-registered target by id, never a raw URL from an agent, so
+  an agent cannot redirect the platform at a system it must not attack.
 - **Observability Layer + Exploit Store (SQLite)** — *Data substrate.* Versioned, migration-aware
   schema: `findings`, `regression_cases`, `attack_attempts`, `events`, `coverage`, `cost`.
-  Indexed by severity / attack-category / target-version. Serves the Orchestrator and humans.
+  Indexed by severity / attack-category / target-version. Serves the Orchestrator and humans. The
+  domain read-model (findings/coverage/regression/cost) lives here; **agent-level execution traces
+  — per-agent spans, token/cost/latency, and finding→agent lineage — go to a self-hosted Langfuse**
+  (see tradeoffs). The `events` table is **append-only**, serving as the audit trail for autonomous
+  runs.
 
 ## Interfaces & data flow
 
@@ -194,6 +200,50 @@ an extension point — the schemas already exist as versioned models, so it is a
   behavior is genuinely absent on the replayed transcript, never merely because output changed.
 - **Trust boundaries:** Red Team → Target only; Judge independent; human gate before
   publish/remediate; no agent applies fixes.
+
+## Platform trust, safety & operations
+
+*(Added after a pre-build checklist review — this dimension was under-specified in the first draft.)*
+
+- **Platform self-safety (don't attack the wrong thing).** The Adapter's **target allowlist** is the
+  hard control: agents reference a target by id; only pre-registered targets are reachable. Runs are
+  triggered by an **authenticated operator** (API-key/CLI token at MVP; operator-vs-viewer roles as
+  an extension). Report reads are access-controlled. Every trigger and every agent action is written
+  to the append-only `events` log — the audit trail for overnight/autonomous runs.
+- **Healthcare data & PHI.** The platform runs **only against a non-production target seeded with
+  synthetic patient data** — no real PHI. This bounds the blast radius of both exfiltration attacks
+  and any harmful content the Red Team elicits. Transcripts may still contain sensitive-looking
+  model output, so the store is access-controlled with a stated retention policy, and traces stay
+  **in-environment** (self-hosted Langfuse, not a hosted SaaS).
+- **Reliability bias — false negatives cost more than false positives.** A missed vulnerability is
+  worse than a flagged-but-safe one here. So the **Judge escalates low-confidence verdicts to human
+  review** rather than silently passing; coverage favors recall; false positives are absorbed by the
+  human approval + data-quality gates. Critical/high reports require explicit human approval before
+  publish (**severity-aware gate**).
+- **Failure handling & recovery.** Each typed agent error maps to a policy: transient (target
+  unreachable, judge timeout, rate limit) → bounded retry-with-backoff → skip/redirect; hard (budget
+  exceeded, no-signal) → Orchestrator redirects or halts. A **circuit breaker** aborts a run after K
+  agent failures and surfaces it to the operator. The Orchestrator's **no-clear-priority fallback**
+  is round-robin over the least-covered categories; if all are at target coverage or the budget is
+  spent, it stops cleanly.
+- **Testing the tester (platform self-regression).** A fixed **platform-invariant suite** runs each
+  build: the Judge invariant (never pass a confirmed exploit), calibration-set stability, **Red Team
+  novelty** (a new attack must differ from stored attempts by a similarity threshold — guards against
+  the generator going stale), and message-contract conformance. Regression here means the *platform*
+  degraded, distinct from target regression.
+- **Operational scale.** Campaigns run sequentially by default; concurrency is a scale lever behind a
+  cap, always subject to the target's own rate limits via the Adapter. Latency / throughput / volume
+  targets are set from M1 baselines and feed the AI Cost Analysis.
+
+## Open questions to resolve during the build
+
+- **Per-category success criteria** — the Judge rubric needs an explicit, testable definition of
+  success/fail/partial *per attack category*, not just a general rubric.
+- **Coverage-sufficiency** — what marks a category "sufficiently covered" so the Orchestrator moves on.
+- **Context-window budget** for long multi-turn attack sequences.
+- **Time-based regression trigger** in addition to deploy-triggered runs.
+- Plus the earlier open items: target contract shape, Claude refusal rate, Judge calibration
+  threshold & single-vs-panel, halt-on-no-signal thresholds.
 
 ## Extension points (optional / future deliverables — designed for, not built now)
 
@@ -240,3 +290,13 @@ the local/OSS extension point).
   optionals; Postgres deferred behind the same store interface if scale demands it.
 - **Independent Judge vs shared generator/evaluator:** independence costs extra LLM calls but is
   non-negotiable — a self-grading attacker is compromised by design.
+- **Observability tooling — self-hosted Langfuse for traces + SQLite for domain data (vs LangSmith /
+  Braintrust / all-custom):** we split the two concerns. Agent *execution traces* (spans, per-agent
+  token/cost/latency, finding→agent lineage) go to **Langfuse, self-hosted** — it's open-source,
+  LangGraph-compatible, and keeps trace data (which can contain sensitive model output) **in our
+  environment**. **LangSmith was rejected** for mainline: it's a hosted SaaS, so transcripts would
+  leave the environment — unacceptable against a healthcare target. **Braintrust** is eval-centric,
+  not built for inter-agent execution tracing. The *domain* read-model (findings, coverage,
+  regression, cost rollups — what the Orchestrator steers by) stays in **SQLite**; adopting Langfuse
+  for traces is what closes the agent-level-cost and finding-lineage gaps without hand-rolling a
+  tracer. (Earlier drafts implied an all-custom observability layer; this is the correction.)
