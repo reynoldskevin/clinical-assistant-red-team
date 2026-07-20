@@ -7,7 +7,7 @@ name = "agent-forge"
 version = "0.1.0"
 description = "Adversarial agent harness."
 requires-python = ">=3.11"
-dependencies = ["anthropic>=0.40"]
+dependencies = ["anthropic>=0.40", "pydantic>=2"]
 
 [project.optional-dependencies]
 dev = ["pytest"]
