@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ExtractRequest",
+  "description": "POST /extract request body. Mirrors contracts.ExtractRequest (extra=forbid).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "pid": { "type": "integer" },
+    "document_id": { "type": "integer" },
+    "doc_type": { "type": "string", "enum": ["lab_pdf", "intake_form", "med_list"] }
+  },
+  "required": ["pid", "document_id", "doc_type"]
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ExtractResponse",
+  "description": "POST /extract 200 response body. Mirrors contracts.ExtractResponse (extra=ignore).",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "ok": { "type": "boolean" },
+    "doc_type": { "type": "string" },
+    "confidence": { "type": "number" },
+    "low_confidence": { "type": "boolean" },
+    "unsupported_fields": { "type": "array", "items": { "type": "string" } },
+    "fact": { "type": "object" },
+    "correlation_id": { "type": "string" },
+    "identity_check": { "type": ["object", "null"] }
+  },
+  "required": ["ok", "doc_type", "confidence", "low_confidence", "unsupported_fields", "fact", "correlation_id"]
+}
