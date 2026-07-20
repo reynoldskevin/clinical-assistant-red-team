@@ -1,13 +1,13 @@
 ---
 id: 008
 title: Seed eval dataset (>=3 categories, OWASP-mapped)
-status: tests-authored # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [003]
 branch: ticket/008-seed-evals
 base_branch: main
 test_command: ".venv/bin/pytest tests/test_evals_dataset.py -q"
 full_suite_command: ".venv/bin/pytest -q"
-attempts: 0
+attempts: 1
 ---
 
 ## Description
