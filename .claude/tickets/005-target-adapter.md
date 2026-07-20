@@ -1,13 +1,13 @@
 ---
 id: 005
 title: Target Adapter (sole egress to the live Co-Pilot)
-status: tests-authored  # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [001, 003, 004, 023]
 branch: ticket/005-target-adapter
 base_branch: main
 test_command: ".venv/bin/pytest tests/test_target_adapter.py -q"
 full_suite_command: ".venv/bin/pytest -q"
-attempts: 0
+attempts: 1
 ---
 
 ## Description

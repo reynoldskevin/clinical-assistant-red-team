@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 dependencies = ["anthropic>=0.40", "pydantic>=2"]
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "jsonschema>=4"]
 
 [tool.setuptools]
 packages = ["forge"]
