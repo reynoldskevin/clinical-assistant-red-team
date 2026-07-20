@@ -1,13 +1,13 @@
 ---
 id: 023
 title: Target allowlist + operator auth + audit log
-status: tests-authored     # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [004]
 branch: ticket/023-access-control
 base_branch: main
 test_command: ".venv/bin/pytest tests/test_access_control.py -q"
 full_suite_command: ".venv/bin/pytest -q"
-attempts: 0
+attempts: 2
 ---
 
 ## Description
