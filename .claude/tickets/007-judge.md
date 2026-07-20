@@ -1,13 +1,13 @@
 ---
 id: 007
 title: Judge agent (independent evaluation + invariant)
-status: tests-authored # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [002, 003]
 branch: ticket/007-judge
 base_branch: main
 test_command: ".venv/bin/pytest tests/test_judge.py -q"
 full_suite_command: ".venv/bin/pytest -q"
-attempts: 0
+attempts: 1
 ---
 
 ## Description
