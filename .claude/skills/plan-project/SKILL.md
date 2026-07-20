@@ -4,18 +4,19 @@ description: >-
   Turn a PROJECT_BRIEF.md into a defensible build. Reads the brief from the project
   root, asks clarifying questions, then generates ARCHITECTURE.md + ARCHITECTURE_DIAGRAM.md
   (gated for approval), and from the approved architecture a BUILD_PLAN.md (MVP-first,
-  milestoned) and a TICKETS.md that feeds the tdd-ticket-loop skill. Trigger phrases:
+  milestoned), a TICKETS.md that feeds the tdd-ticket-loop skill, and a TIME_ESTIMATE.md
+  (per-milestone and per-ticket estimates + each milestone's % of total effort). Trigger phrases:
   "plan the project", "plan this build", "turn the brief into a plan", "plan-project".
   Planning/architecture task — it writes docs and tickets, it does NOT write product code.
 ---
 
-# Plan Project — brief → architecture → build plan → tickets
+# Plan Project — brief → architecture → build plan → tickets → time estimate
 
 You (the main Claude Code agent) are the **project planner**. Your job is to turn a
 `PROJECT_BRIEF.md` into a small set of planning artifacts that a build can execute
-against: an architecture and diagram, a milestoned build plan, and a ticket list that
-hands off to the **`tdd-ticket-loop`** skill. This is a **planning task** — you produce
-documents and tickets, you do NOT write product/feature code here.
+against: an architecture and diagram, a milestoned build plan, a ticket list that
+hands off to the **`tdd-ticket-loop`** skill, and a time estimate. This is a **planning
+task** — you produce documents and tickets, you do NOT write product/feature code here.
 
 ## Locked design decisions (do not deviate without asking the user)
 
@@ -150,11 +151,37 @@ plan, plus the milestone tag and the `test_command`/`full_suite_command` you con
 Step 1). Keep tickets small enough that each is a clean TDD unit with observable acceptance
 criteria. Order so MVP is fully covered by the earliest tickets.
 
+## Step 5 — TIME_ESTIMATE.md
+
+Estimate effort for the plan you just wrote. Use the template below. Rules:
+
+- **Estimate every ticket.** One row per ticket (same ids/titles as TICKETS.md), grouped
+  under its milestone, with an effort estimate. Use a consistent unit — **ideal engineering
+  hours** by default (state the unit at the top); switch to story points or days only if the
+  user asked. Give a single point estimate per ticket; add an optional low–high range only
+  where uncertainty is high, and flag the assumptions/unknowns that drive it (e.g. an
+  unpinned external contract).
+- **Roll up per milestone.** Sum the ticket estimates into a milestone total, and compute each
+  **milestone's share of the whole build as a percentage** (milestone total ÷ grand total).
+  Percentages are of the **mainline** total (Milestones only); list Backlog/optional items
+  separately so they don't distort the mainline split.
+- **Summary first.** Open with a summary table — one row per milestone: total effort +
+  % of build — and the grand total, so the effort shape is visible at a glance. A tiny
+  text bar (e.g. `████░░░ 40%`) per milestone is a nice touch but optional.
+- **Be honest about basis.** State that estimates assume the tech/stack decisions in
+  ARCHITECTURE.md and the ticket granularity in TICKETS.md; note that tickets with open
+  unknowns (from the architecture's open questions) carry wider ranges. Do not pad silently —
+  if you add contingency, show it as a line.
+- **Consistency.** The ticket ids, titles, and milestone grouping MUST match TICKETS.md and
+  BUILD_PLAN.md exactly. If you revise tickets later, revise this file too.
+
 ## Handoff
 
-When TICKETS.md is done, tell the user the plan is ready and that they can run the
-**`tdd-ticket-loop`** skill to execute it (it reads BUILD_PLAN.md / TICKETS.md and drives
-sub-agents through TDD, one ticket at a time). Do not start the loop yourself unless asked.
+When all four artifacts (BUILD_PLAN.md, TICKETS.md, TIME_ESTIMATE.md, plus the earlier
+ARCHITECTURE.md/diagram) are written, tell the user the plan is ready and give the headline
+effort numbers (grand total + each milestone's %). They can then run the **`tdd-ticket-loop`**
+skill to execute it (it reads BUILD_PLAN.md / TICKETS.md and drives sub-agents through TDD, one
+ticket at a time). Do not start the loop yourself unless asked.
 
 ## Templates
 
@@ -286,6 +313,43 @@ Goal: <remaining brief requirement group>
 - milestone: 1 (MVP)
 - depends_on: [001]
 …
+```
+
+### TIME_ESTIMATE.md
+
+```markdown
+# Time Estimate — <project name>
+
+**Unit:** ideal engineering hours (single-developer, focused). Estimates assume the stack in
+ARCHITECTURE.md and the ticket granularity in TICKETS.md. Percentages are of the mainline
+(Milestones only); backlog/optional items are listed separately.
+
+## Summary — effort by milestone
+| Milestone | Effort (h) | % of build | |
+|---|---:|---:|---|
+| M1 — MVP | 00 | 00% | ██████░░░░ |
+| M2 — <name> | 00 | 00% | ████░░░░░░ |
+| M3 — <name> | 00 | 00% | ██░░░░░░░░ |
+| **Total (mainline)** | **000** | **100%** | |
+| Contingency (<n>%) | 00 | — | <shown explicitly if added> |
+| Backlog (optional) | 00 | — | not in the mainline % |
+
+## Milestone 1 — MVP
+| Ticket | Title | Effort (h) | Notes / assumptions |
+|---|---|---:|---|
+| 001 | <title> | 0 | |
+| 002 | <title> | 0 | <wider range: unpinned external contract, etc.> |
+| … | | | |
+| | **M1 subtotal** | **00** | |
+
+## Milestone 2 — <name>
+| Ticket | Title | Effort (h) | Notes / assumptions |
+|---|---|---:|---|
+| … | | | |
+| | **M2 subtotal** | **00** | |
+
+<More milestones as needed. Optionally, a Backlog section estimating optional deliverables,
+clearly excluded from the mainline % split.>
 ```
 
 ## What this skill does NOT do
