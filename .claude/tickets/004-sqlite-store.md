@@ -1,13 +1,13 @@
 ---
 id: 004
 title: SQLite exploit store + event log + migrations
-status: tests-authored     # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [001]
 branch: ticket/004-sqlite-store
 base_branch: main
 test_command: ".venv/bin/pytest tests/test_store.py -q"
 full_suite_command: ".venv/bin/pytest -q"
-attempts: 0
+attempts: 2
 ---
 
 ## Description
