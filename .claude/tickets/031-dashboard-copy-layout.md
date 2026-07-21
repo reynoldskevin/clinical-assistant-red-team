@@ -1,7 +1,7 @@
 ---
 id: 031
 title: Dashboard copy + layout polish (stale copy, findings tag, row-3 spans, numbering)
-status: tests-authored # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [030]
 branch: ticket/031-dashboard-copy-layout
 base_branch: ticket/030-dashboard-live-status
