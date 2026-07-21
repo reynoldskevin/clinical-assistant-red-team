@@ -1,13 +1,13 @@
 ---
 id: 009
 title: MVP run entrypoint (live Red Team -> Adapter -> Judge)
-status: tests-authored # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [004, 006, 007, 008]
 branch: ticket/009-run-entrypoint
 base_branch: main
 test_command: ".venv/bin/pytest tests/test_run_entrypoint.py -q"
 full_suite_command: ".venv/bin/pytest -q"
-attempts: 0
+attempts: 1
 ---
 
 ## Description

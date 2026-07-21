@@ -9,6 +9,9 @@ description = "Adversarial agent harness."
 requires-python = ">=3.11"
 dependencies = ["anthropic>=0.40", "pydantic>=2"]
 
+[project.scripts]
+forge = "forge.run:main"
+
 [project.optional-dependencies]
 dev = ["pytest", "jsonschema>=4"]
 
