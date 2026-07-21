@@ -11,10 +11,17 @@ module. These tests pin that contract:
 """
 
 import pathlib
+import re
 import subprocess
 import sys
+import tomllib
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
+
+
+def _pkg_name(spec: str) -> str:
+    # "anthropic>=0.40" -> "anthropic"
+    return re.split(r"[<>=!~ \[]", spec.strip(), maxsplit=1)[0].lower()
 
 
 def test_python_dash_m_forge_reaches_main_and_parses_args():
@@ -49,3 +56,18 @@ def test_procfile_uses_module_entrypoint():
     assert "python -m forge serve" in procfile
     # must NOT rely on the bare console script that wasn't on PATH
     assert "web: forge serve" not in procfile
+
+
+def test_requirements_mirror_pyproject():
+    # The Nixpacks build installs from requirements.txt; it must list every
+    # runtime dependency declared in pyproject so the container isn't missing
+    # modules at import (the second crash: `No module named 'pydantic'`).
+    pyproject = tomllib.loads((REPO / "pyproject.toml").read_text())
+    declared = {_pkg_name(d) for d in pyproject["project"]["dependencies"]}
+
+    reqs = (REPO / "requirements.txt").read_text().splitlines()
+    listed = {
+        _pkg_name(line) for line in reqs if line.strip() and not line.strip().startswith("#")
+    }
+    missing = declared - listed
+    assert not missing, f"requirements.txt missing runtime deps: {missing}"
