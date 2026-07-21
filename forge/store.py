@@ -247,5 +247,21 @@ class Store:
         return [self._row_to_dict(r) for r in rows]
 
     # ------------------------------------------------------------------ #
+    # cost
+    # ------------------------------------------------------------------ #
+    def insert_cost(self, data: dict) -> int:
+        cur = self.conn.execute(
+            "INSERT INTO cost (data) VALUES (?)", (json.dumps(data),)
+        )
+        self.conn.commit()
+        return int(cur.lastrowid)
+
+    def get_costs(self) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT id, data FROM cost ORDER BY id ASC"
+        ).fetchall()
+        return [self._row_to_dict(r) for r in rows]
+
+    # ------------------------------------------------------------------ #
     def close(self) -> None:
         self.conn.close()
