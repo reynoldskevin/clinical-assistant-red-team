@@ -1,7 +1,7 @@
 ---
 id: 032
 title: Third row 6/3/3 spans + restore static "auto-refresh" pill with green pulse
-status: tests-authored # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [031]
 branch: ticket/032-dashboard-pill-spans
 base_branch: main

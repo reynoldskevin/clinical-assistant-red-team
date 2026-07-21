@@ -264,7 +264,7 @@ _BODY = """
     <h1>Agent Forge · Adversarial</h1>
     <span class="sub">live resilience console</span>
     <span class="runstate" id="runstate" hidden><span class="pulse"></span>run in progress</span>
-    <span class="live" id="refresh-pill">&#8635; next refresh <span class="num" id="refresh-count">5</span>s</span>
+    <span class="live" id="refresh-pill"><span class="pulse"></span>auto-refresh · 5s</span>
   </div>
   <div class="grid">
 
@@ -323,7 +323,7 @@ _BODY = """
     </div>
 
     <!-- owasp coverage -->
-    <div class="w c5">
+    <div class="w c6">
       <div class="whead"><span class="wt"><span class="id">03</span> OWASP coverage</span><span class="wtag">coverage()</span></div>
       <div class="heat" id="owasp-heat"></div>
     </div>
@@ -335,7 +335,7 @@ _BODY = """
     </div>
 
     <!-- finding lifecycle -->
-    <div class="w c4">
+    <div class="w c3">
       <div class="whead"><span class="wt"><span class="id">05</span> Findings</span><span class="wtag">outcomes()</span></div>
       <div class="pipe" id="findings-pipe"></div>
     </div>
@@ -531,30 +531,11 @@ _SCRIPT = r"""
     renderRunState(!!state.run_active);
   }
 
-  var REFRESH_S = 5, left = REFRESH_S, polling = false;
-  function showCountdown() {
-    var pill = document.getElementById("refresh-pill");
-    if (pill) pill.innerHTML =
-      '↻ next refresh <span class="num" id="refresh-count">' + left + '</span>s';
-  }
-  function showRefreshing() {
-    var pill = document.getElementById("refresh-pill");
-    if (pill) pill.innerHTML = '↻ refreshing…';
-  }
   function poll() {
-    if (polling) return;
-    polling = true;
-    showRefreshing();
-    return fetch("/api/state", { cache: "no-store" })
+    fetch("/api/state", { cache: "no-store" })
       .then(function (r) { return r.json(); })
       .then(render)
-      .catch(function () {})
-      .then(function () { polling = false; left = REFRESH_S; showCountdown(); });
-  }
-  function tick() {
-    if (polling) return;
-    left -= 1;
-    if (left <= 0) { poll(); } else { showCountdown(); }
+      .catch(function () {});
   }
 
   var initial = null;
@@ -562,8 +543,7 @@ _SCRIPT = r"""
     initial = JSON.parse(document.getElementById("initial-state").textContent);
   } catch (e) { initial = null; }
   render(initial);
-  showCountdown();
-  setInterval(tick, 1000);
+  setInterval(poll, 5000);
 })();
 """
 

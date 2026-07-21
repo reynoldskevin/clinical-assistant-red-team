@@ -38,9 +38,11 @@ def test_widget_numbering_sequential_and_unique():
         assert html.count('<span class="id">' + n + "</span>") == 1, n
 
 
-def test_third_row_spans_are_5_3_4():
+def test_third_row_spans():
+    # Third-row spans, tied to their numbered headings. NOTE: ticket 032 changed
+    # these from 5/3/4 to 6/3/3 by user request; the authoritative assertion now
+    # lives in tests/test_dashboard_pill_spans.py.
     html = _html()
-    # OWASP = 5, Cost = 3, Findings = 4, each tied to its numbered heading
-    assert re.search(r'class="w c5">\s*<div class="whead"><span class="wt"><span class="id">03</span> OWASP coverage', html)
+    assert re.search(r'class="w c6">\s*<div class="whead"><span class="wt"><span class="id">03</span> OWASP coverage', html)
     assert re.search(r'class="w c3">\s*<div class="whead"><span class="wt"><span class="id">04</span> Cost', html)
-    assert re.search(r'class="w c4">\s*<div class="whead"><span class="wt"><span class="id">05</span> Findings', html)
+    assert re.search(r'class="w c3">\s*<div class="whead"><span class="wt"><span class="id">05</span> Findings', html)
