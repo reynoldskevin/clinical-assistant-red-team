@@ -14,7 +14,7 @@ Target under test [here](#target-under-test)\
 How the target is reached / made testable [here](#how-the-target-is-reached--made-testable)\
 Data Handling & Retention [here](#data-handling--retention)\
 Running instructions [here](#running-instructions)\
-Engineering Deliverables [here]()
+Engineering Deliverables [here](#engineering-deliverables)
 
 ## Deployed URLs
 
@@ -96,4 +96,4 @@ Result: charts went from ~33 s to ~1.5 s (measured on the live demo).
 ## Engineering Deliverables
 Threat Model [here](THREAT_MODEL.md)\
 Architecture [here](ARCHITECTURE.md)\
-Architecture Diagram [here](ARCHITECTURE_DIAGRAM.md)\
+Architecture Diagram [here](ARCHITECTURE_DIAGRAM.md)
