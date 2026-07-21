@@ -22,13 +22,20 @@ def test_third_row_spans_are_6_3_3():
     assert re.search(r'class="w c3">\s*<div class="whead"><span class="wt"><span class="id">05</span> Findings', html)
 
 
-def test_refresh_pill_static_with_green_pulse():
+def test_refresh_pill_green_pulse_autorefresh_label_and_countdown():
     html = _html()
-    # green flashing pulse dot restored + original static wording
-    assert '<span class="live" id="refresh-pill"><span class="pulse"></span>auto-refresh · 5s</span>' in html
-    # the per-second countdown copy is gone
+    # green flashing pulse dot + "auto-refresh" label + a live countdown number
+    assert (
+        '<span class="live" id="refresh-pill"><span class="pulse"></span>'
+        'auto-refresh · <span class="num" id="refresh-count">5</span>s</span>'
+    ) in html
+    # the ↻ icon / "next refresh" / "refreshing" variants are gone
     assert "next refresh" not in html
     assert "refreshing" not in html.lower()
+    assert "↻" not in html
+    # the number counts down each second (per-second tick) and still polls
+    assert "setInterval" in html
+    assert 'id="refresh-count"' in html
 
 
 def test_polling_and_runstate_intact():

@@ -264,7 +264,7 @@ _BODY = """
     <h1>Agent Forge · Adversarial</h1>
     <span class="sub">live resilience console</span>
     <span class="runstate" id="runstate" hidden><span class="pulse"></span>run in progress</span>
-    <span class="live" id="refresh-pill"><span class="pulse"></span>auto-refresh · 5s</span>
+    <span class="live" id="refresh-pill"><span class="pulse"></span>auto-refresh · <span class="num" id="refresh-count">5</span>s</span>
   </div>
   <div class="grid">
 
@@ -531,11 +531,27 @@ _SCRIPT = r"""
     renderRunState(!!state.run_active);
   }
 
+  // countdown: update ONLY the number so the green pulse dot + "auto-refresh"
+  // label stay put; poll at zero, then reset to 5.
+  var REFRESH_S = 5, left = REFRESH_S, polling = false;
+  function paintCount() {
+    var el = document.getElementById("refresh-count");
+    if (el) el.textContent = left;
+  }
   function poll() {
-    fetch("/api/state", { cache: "no-store" })
+    if (polling) return;
+    polling = true;
+    return fetch("/api/state", { cache: "no-store" })
       .then(function (r) { return r.json(); })
       .then(render)
-      .catch(function () {});
+      .catch(function () {})
+      .then(function () { polling = false; });
+  }
+  function tick() {
+    if (polling) return;
+    left -= 1;
+    if (left <= 0) { poll(); left = REFRESH_S; }
+    paintCount();
   }
 
   var initial = null;
@@ -543,7 +559,8 @@ _SCRIPT = r"""
     initial = JSON.parse(document.getElementById("initial-state").textContent);
   } catch (e) { initial = null; }
   render(initial);
-  setInterval(poll, 5000);
+  paintCount();
+  setInterval(tick, 1000);
 })();
 """
 
