@@ -1,7 +1,7 @@
 ---
 id: 030
 title: Dashboard run-in-progress indicator + live refresh countdown
-status: tests-authored # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [029]
 branch: ticket/030-dashboard-live-status
 base_branch: main

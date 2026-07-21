@@ -38,14 +38,22 @@ def build_state(observability) -> dict:
         "partial": overall["partial"],
         "defended": overall["defended"],
     }
-    # seq -> verdict, so the live feed can pill verdict rows (the 016 activity log
-    # carries only seq/agent/kind/category). Kept separate from agent_activity,
-    # which mirrors the read-model snapshot verbatim. String keys survive JSON.
+    # single pass over events for: seq -> verdict (so the live feed can pill
+    # verdict rows — the 016 activity log carries only seq/agent/kind/category),
+    # and the run-in-progress flag (a run_start with no later run_end). Kept
+    # separate from agent_activity, which mirrors the snapshot verbatim.
     verdicts = {}
+    last_start = last_end = -1
     for ev in observability.store.get_events():
-        if ev.get("kind") == "verdict":
+        kind = ev.get("kind")
+        if kind == "verdict":
             verdicts[str(ev.get("id"))] = ev.get("verdict")
+        elif kind == "run_start":
+            last_start = ev.get("id", last_start)
+        elif kind == "run_end":
+            last_end = ev.get("id", last_end)
     state["verdicts"] = verdicts
+    state["run_active"] = last_start > last_end
     return state
 
 
@@ -127,10 +135,17 @@ _STYLE = """
   .live { margin-left: auto; display: inline-flex; align-items: center; gap: 8px;
     font-size: 12px; color: var(--muted); font-family: var(--mono);
     padding: 5px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); }
-  .live .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--good);
+  .live .num { font-variant-numeric: tabular-nums; font-weight: 640; color: var(--fg); }
+  .runstate { margin-left: auto; display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; font-family: var(--mono); font-weight: 600; letter-spacing: .02em;
+    color: var(--accent); padding: 5px 11px; border: 1px solid var(--accent);
+    border-radius: 999px; background: var(--accent-bg); }
+  .runstate[hidden] { display: none; }
+  .runstate .pulse { background: var(--accent); }
+  .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--good);
     animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
-  @media (prefers-reduced-motion: reduce) { .live .pulse { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
   .note { color: var(--faint); font-size: 12px; margin: 12px 0 22px; font-family: var(--mono); }
 
   /* ---- the bento grid ---- */
@@ -251,7 +266,8 @@ _BODY = """
     <span class="brandmark">◈</span>
     <h1>Agent Forge · Adversarial</h1>
     <span class="sub">live resilience console</span>
-    <span class="live"><span class="pulse"></span>auto-refresh · 5s</span>
+    <span class="runstate" id="runstate" hidden><span class="pulse"></span>run in progress</span>
+    <span class="live" id="refresh-pill">&#8635; next refresh <span class="num" id="refresh-count">5</span>s</span>
   </div>
   <p class="note"># every tile maps 1:1 to a field of the merged 016 read-model (snapshot()). Accent #2968e6 (same in light &amp; dark). Toggle OS/theme for both palettes.</p>
 
@@ -507,6 +523,11 @@ _SCRIPT = r"""
     if (newest !== null) lastSeq = newest;
   }
 
+  function renderRunState(active) {
+    var el = document.getElementById("runstate");
+    if (el) el.hidden = !active;
+  }
+
   function render(state) {
     if (!state) return;
     render.state = state;
@@ -517,13 +538,33 @@ _SCRIPT = r"""
     renderCost(state.cost || {});
     renderFindings(state.outcomes || {});
     renderFeed(state.agent_activity || [], state.verdicts || {});
+    renderRunState(!!state.run_active);
   }
 
+  var REFRESH_S = 5, left = REFRESH_S, polling = false;
+  function showCountdown() {
+    var pill = document.getElementById("refresh-pill");
+    if (pill) pill.innerHTML =
+      '↻ next refresh <span class="num" id="refresh-count">' + left + '</span>s';
+  }
+  function showRefreshing() {
+    var pill = document.getElementById("refresh-pill");
+    if (pill) pill.innerHTML = '↻ refreshing…';
+  }
   function poll() {
-    fetch("/api/state", { cache: "no-store" })
+    if (polling) return;
+    polling = true;
+    showRefreshing();
+    return fetch("/api/state", { cache: "no-store" })
       .then(function (r) { return r.json(); })
       .then(render)
-      .catch(function () {});
+      .catch(function () {})
+      .then(function () { polling = false; left = REFRESH_S; showCountdown(); });
+  }
+  function tick() {
+    if (polling) return;
+    left -= 1;
+    if (left <= 0) { poll(); } else { showCountdown(); }
   }
 
   var initial = null;
@@ -531,7 +572,8 @@ _SCRIPT = r"""
     initial = JSON.parse(document.getElementById("initial-state").textContent);
   } catch (e) { initial = null; }
   render(initial);
-  setInterval(poll, 5000);
+  showCountdown();
+  setInterval(tick, 1000);
 })();
 """
 
