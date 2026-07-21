@@ -1,7 +1,7 @@
 ---
 id: 034
 title: Group status chips + 10s refresh + header spacing
-status: tests-authored # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [033]
 branch: ticket/034-chip-align-refresh
 base_branch: main

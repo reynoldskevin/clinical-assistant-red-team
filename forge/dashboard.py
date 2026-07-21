@@ -126,17 +126,18 @@ _STYLE = """
 
   /* ---- page header ---- */
   .masthead { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-    margin-bottom: 6px; }
+    margin-bottom: 14px; }
   .brandmark { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center;
     background: linear-gradient(150deg, var(--accent-solid), #1a3f8f); color: #fff;
     font-size: 15px; box-shadow: 0 4px 12px -4px var(--accent-solid); }
   .masthead h1 { font-size: 18px; letter-spacing: -.01em; margin: 0; font-weight: 650; }
   .masthead .sub { color: var(--muted); font-size: 13px; }
-  .live { margin-left: auto; display: inline-flex; align-items: center; gap: 8px;
+  .statusbar { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; }
+  .live { display: inline-flex; align-items: center; gap: 8px;
     font-size: 12px; color: var(--muted); font-family: var(--mono);
     padding: 5px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); }
   .live .num { font-variant-numeric: tabular-nums; font-weight: 640; color: var(--fg); }
-  .runstate { margin-left: auto; display: inline-flex; align-items: center; gap: 8px;
+  .runstate { display: inline-flex; align-items: center; gap: 8px;
     font-size: 12px; font-family: var(--mono); font-weight: 600; letter-spacing: .02em;
     color: var(--accent); padding: 5px 11px; border: 1px solid var(--accent);
     border-radius: 999px; background: var(--accent-bg); }
@@ -263,8 +264,10 @@ _BODY = """
     <span class="brandmark">◈</span>
     <h1>Agent Forge · Adversarial</h1>
     <span class="sub">live resilience console</span>
-    <span class="runstate" id="runstate" hidden><span class="pulse"></span>run in progress</span>
-    <span class="live" id="refresh-pill"><span class="pulse"></span>auto-refresh · <span class="num" id="refresh-count">5</span>s</span>
+    <span class="statusbar">
+      <span class="runstate" id="runstate" hidden><span class="pulse"></span>run in progress</span>
+      <span class="live" id="refresh-pill"><span class="pulse"></span>auto-refresh · <span class="num" id="refresh-count">10</span>s</span>
+    </span>
   </div>
   <div class="grid">
 
@@ -533,7 +536,7 @@ _SCRIPT = r"""
 
   // countdown: update ONLY the number so the green pulse dot + "auto-refresh"
   // label stay put; poll at zero, then reset to 5.
-  var REFRESH_S = 5, left = REFRESH_S, polling = false;
+  var REFRESH_S = 10, left = REFRESH_S, polling = false;
   function paintCount() {
     var el = document.getElementById("refresh-count");
     if (el) el.textContent = left;
