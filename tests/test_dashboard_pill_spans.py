@@ -29,7 +29,7 @@ def test_refresh_pill_green_pulse_autorefresh_label_and_countdown():
     # green flashing pulse dot + "auto-refresh" label + a live countdown number
     assert (
         '<span class="live" id="refresh-pill"><span class="pulse"></span>'
-        'auto-refresh · <span class="num" id="refresh-count">5</span>s</span>'
+        'auto-refresh · <span class="num" id="refresh-count">10</span>s</span>'
     ) in html
     # the ↻ icon / "next refresh" / "refreshing" variants are gone
     assert "next refresh" not in html
