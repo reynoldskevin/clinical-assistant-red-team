@@ -1,0 +1,6 @@
+# Runtime dependencies for the Railway (Nixpacks) build. Mirrors the
+# [project].dependencies in pyproject.toml — kept in sync by
+# tests/test_module_entrypoint.py::test_requirements_mirror_pyproject.
+# The forge package itself is run from the app dir via `python -m forge`.
+anthropic>=0.40
+pydantic>=2

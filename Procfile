@@ -1,1 +1,1 @@
-web: forge serve
+web: python -m forge serve
