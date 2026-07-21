@@ -238,6 +238,49 @@ def test_emitted_ask_request_conforms_to_vendored_contract():
         jsonschema.validate({**body, "injected_field": "x"}, schema)
 
 
+def test_default_transport_timeout_raised_and_configurable(monkeypatch):
+    """The built-in default transport must give live /ask real headroom (the merged
+    30s was too tight: heavy multi-tool answers ran ~27s) and be tunable per adapter.
+    """
+    import forge.target as target
+    from forge.target import TargetAdapter
+
+    captured = {}
+
+    class _Resp:
+        status = 200
+
+        def read(self):
+            return b'{"answer": "a", "correlation_id": "c"}'
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def fake_urlopen(req, timeout=None):
+        captured["timeout"] = timeout
+        return _Resp()
+
+    monkeypatch.setattr(target.urllib.request, "urlopen", fake_urlopen)
+
+    # default must have headroom over observed live latency
+    assert target._DEFAULT_TIMEOUT >= 60
+
+    # default path: the built-in transport uses _DEFAULT_TIMEOUT
+    a = TargetAdapter(_registry(), "copilot", token_provider=lambda pid: "JWT", store=_store())
+    a.ask(pid=1, question="q")
+    assert captured["timeout"] == target._DEFAULT_TIMEOUT
+
+    # configurable per adapter
+    a2 = TargetAdapter(
+        _registry(), "copilot", token_provider=lambda pid: "JWT", store=_store(), timeout=123
+    )
+    a2.ask(pid=1, question="q")
+    assert captured["timeout"] == 123
+
+
 def test_response_parsing_matches_vendored_contract():
     schema = json.loads((CONTRACTS / "ask_response.schema.json").read_text())
     jsonschema.validate(ASK_OK, schema)  # the canonical response conforms
