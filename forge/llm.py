@@ -108,13 +108,14 @@ class ClaudeClient:
 
         for attempt in range(attempts):
             try:
-                resp = self._client.messages.create(
-                    model=model,
-                    messages=messages,
-                    max_tokens=max_tokens,
-                    system=system,
-                    temperature=temperature,
-                )
+                create_kwargs: dict[str, Any] = {
+                    "model": model,
+                    "messages": messages,
+                    "max_tokens": max_tokens,
+                }
+                if system is not None:
+                    create_kwargs["system"] = system
+                resp = self._client.messages.create(**create_kwargs)
             except Exception as exc:  # noqa: BLE001 - re-raised as LLMError below
                 last_exc = exc
                 if not self._is_transient(exc):
