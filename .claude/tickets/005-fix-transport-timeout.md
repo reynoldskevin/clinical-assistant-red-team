@@ -1,13 +1,13 @@
 ---
 id: 005-fix
 title: Adapter transport timeout — raise default + make configurable
-status: tests-authored # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [005]
 branch: fix/005-transport-timeout
 base_branch: main
 test_command: ".venv/bin/pytest tests/test_target_adapter.py -q"
 full_suite_command: ".venv/bin/pytest -q"
-attempts: 0
+attempts: 1
 ---
 
 ## Description
