@@ -1,7 +1,7 @@
 ---
 id: 033
 title: Row three back to 5/3/4 + widen OWASP label column to 200px
-status: tests-authored # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [032]
 branch: ticket/033-owasp-label-width
 base_branch: main
