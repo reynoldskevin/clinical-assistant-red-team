@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from typing import Callable, Optional
 
 _REDACTED_AUTH = "Bearer ***redacted***"
-_DEFAULT_TIMEOUT = 30
+_DEFAULT_TIMEOUT = 90
 
 
 # --------------------------------------------------------------------------- #
@@ -68,33 +68,38 @@ class TargetResponse:
 # --------------------------------------------------------------------------- #
 # Default transport (urllib) — used only when no transport is injected
 # --------------------------------------------------------------------------- #
-def _default_transport(
-    method: str, url: str, headers: dict, json_body: Optional[dict]
-) -> TransportResponse:
-    data = json.dumps(json_body).encode() if json_body is not None else None
-    req = urllib.request.Request(url, method=method, headers=headers, data=data)
-    try:
-        with urllib.request.urlopen(req, timeout=_DEFAULT_TIMEOUT) as resp:
-            text = resp.read().decode("utf-8", "replace")
+def _make_default_transport(timeout: int) -> Callable[..., TransportResponse]:
+    """Build a urllib-backed transport closure capturing ``timeout``."""
+
+    def _default_transport(
+        method: str, url: str, headers: dict, json_body: Optional[dict]
+    ) -> TransportResponse:
+        data = json.dumps(json_body).encode() if json_body is not None else None
+        req = urllib.request.Request(url, method=method, headers=headers, data=data)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                text = resp.read().decode("utf-8", "replace")
+                try:
+                    body = json.loads(text) if text else {}
+                except json.JSONDecodeError:
+                    body = {"raw": text}
+                return TransportResponse(status=resp.status, body=body)
+        except urllib.error.HTTPError as err:
+            # 4xx/5xx are real responses the adapter maps itself.
+            text = ""
+            try:
+                text = err.read().decode("utf-8", "replace")
+            except Exception:
+                text = ""
             try:
                 body = json.loads(text) if text else {}
             except json.JSONDecodeError:
                 body = {"raw": text}
-            return TransportResponse(status=resp.status, body=body)
-    except urllib.error.HTTPError as err:
-        # 4xx/5xx are real responses the adapter maps itself.
-        text = ""
-        try:
-            text = err.read().decode("utf-8", "replace")
-        except Exception:
-            text = ""
-        try:
-            body = json.loads(text) if text else {}
-        except json.JSONDecodeError:
-            body = {"raw": text}
-        return TransportResponse(status=err.code, body=body)
-    except (urllib.error.URLError, TimeoutError, OSError) as err:
-        raise TransportError(str(err)) from err
+            return TransportResponse(status=err.code, body=body)
+        except (urllib.error.URLError, TimeoutError, OSError) as err:
+            raise TransportError(str(err)) from err
+
+    return _default_transport
 
 
 # --------------------------------------------------------------------------- #
@@ -111,13 +116,14 @@ class TargetAdapter:
         token_provider: Callable[[int], str],
         store,
         transport: Optional[Callable[..., TransportResponse]] = None,
+        timeout: int = _DEFAULT_TIMEOUT,
     ):
         # Resolve at construction: an unlisted id / raw URL raises TargetNotAllowed
         # (not caught here — construction fails loudly).
         self._target = registry.resolve(target_id)
         self._token_provider = token_provider
         self._store = store
-        self._transport = transport if transport is not None else _default_transport
+        self._transport = transport if transport is not None else _make_default_transport(timeout)
         # One conversation (session) id, reused across all ask turns.
         self._conversation_id = str(uuid.uuid4())
 
