@@ -1,7 +1,7 @@
 ---
 id: 011
 title: USERS.md deliverable
-status: todo # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [001]
 branch: ticket/011-users-doc
 base_branch: main
