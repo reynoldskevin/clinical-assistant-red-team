@@ -15,11 +15,13 @@ def _html():
     return render_html(build_state(Observability(s)))
 
 
-def test_third_row_spans_are_6_3_3():
+def test_third_row_spans():
+    # superseded by ticket 033 (5/3/4); authoritative assertion in
+    # tests/test_dashboard_owasp_label.py
     html = _html()
-    assert re.search(r'class="w c6">\s*<div class="whead"><span class="wt"><span class="id">03</span> OWASP coverage', html)
+    assert re.search(r'class="w c5">\s*<div class="whead"><span class="wt"><span class="id">03</span> OWASP coverage', html)
     assert re.search(r'class="w c3">\s*<div class="whead"><span class="wt"><span class="id">04</span> Cost', html)
-    assert re.search(r'class="w c3">\s*<div class="whead"><span class="wt"><span class="id">05</span> Findings', html)
+    assert re.search(r'class="w c4">\s*<div class="whead"><span class="wt"><span class="id">05</span> Findings', html)
 
 
 def test_refresh_pill_green_pulse_autorefresh_label_and_countdown():

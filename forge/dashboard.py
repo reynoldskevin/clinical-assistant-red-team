@@ -204,7 +204,7 @@ _STYLE = """
 
   /* ---- owasp coverage ---- */
   .heat { display: grid; gap: 8px; }
-  .heatrow { display: grid; grid-template-columns: 118px 1fr 34px; align-items: center; gap: 9px; font-size: 12px; }
+  .heatrow { display: grid; grid-template-columns: 200px 1fr 34px; align-items: center; gap: 9px; font-size: 12px; }
   .heatrow .idc { font-family: var(--mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .heatrow .idc b { color: var(--fg); }
   .bar { height: 8px; border-radius: 4px; background: var(--line-soft); overflow: hidden; }
@@ -323,7 +323,7 @@ _BODY = """
     </div>
 
     <!-- owasp coverage -->
-    <div class="w c6">
+    <div class="w c5">
       <div class="whead"><span class="wt"><span class="id">03</span> OWASP coverage</span><span class="wtag">coverage()</span></div>
       <div class="heat" id="owasp-heat"></div>
     </div>
@@ -335,7 +335,7 @@ _BODY = """
     </div>
 
     <!-- finding lifecycle -->
-    <div class="w c3">
+    <div class="w c4">
       <div class="whead"><span class="wt"><span class="id">05</span> Findings</span><span class="wtag">outcomes()</span></div>
       <div class="pipe" id="findings-pipe"></div>
     </div>
