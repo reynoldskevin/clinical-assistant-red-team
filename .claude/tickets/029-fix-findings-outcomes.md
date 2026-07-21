@@ -1,7 +1,7 @@
 ---
 id: 029-fix2
 title: Dashboard "Findings" widget shows verdict outcomes (defended/partial/exploited), not the empty lifecycle
-status: tests-authored # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [029]
 branch: fix/029-findings-outcomes
 base_branch: main

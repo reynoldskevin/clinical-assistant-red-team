@@ -31,6 +31,13 @@ def build_state(observability) -> dict:
         "total_usd": cost["total_usd"],
         "usd_per_attempt": cost["usd_per_attempt"],
     }
+    # aggregate verdict outcomes for the outcome tile (always populated, unlike
+    # the finding lifecycle which is empty until an exploit creates a finding).
+    state["outcomes"] = {
+        "exploited": overall["exploits"],
+        "partial": overall["partial"],
+        "defended": overall["defended"],
+    }
     # seq -> verdict, so the live feed can pill verdict rows (the 016 activity log
     # carries only seq/agent/kind/category). Kept separate from agent_activity,
     # which mirrors the read-model snapshot verbatim. String keys survive JSON.
@@ -318,7 +325,7 @@ _BODY = """
 
     <!-- finding lifecycle -->
     <div class="w c4">
-      <div class="whead"><span class="wt"><span class="id">05</span> Findings</span><span class="wtag">lifecycle()</span></div>
+      <div class="whead"><span class="wt"><span class="id">05</span> Findings</span><span class="wtag">outcomes</span></div>
       <div class="pipe" id="findings-pipe"></div>
     </div>
 
@@ -468,12 +475,13 @@ _SCRIPT = r"""
       '<div class="c"><div class="n">' + kfmt(cost.total_output_tokens) + '</div><div class="l">output tokens</div></div>';
   }
 
-  function renderFindings(life) {
-    life = life || {};
+  function renderFindings(o) {
+    o = o || {};
+    // verdict outcomes: exploited (crit) / partial (warn) / defended (good)
     document.getElementById("findings-pipe").innerHTML =
-      '<div class="stage open"><div class="nm">Open</div><div class="cnt">' + (life.open || 0) + '</div></div>' +
-      '<div class="stage prog"><div class="nm">In progress</div><div class="cnt">' + (life.in_progress || 0) + '</div></div>' +
-      '<div class="stage done"><div class="nm">Resolved</div><div class="cnt">' + (life.resolved || 0) + '</div></div>';
+      '<div class="stage open"><div class="nm">Exploited</div><div class="cnt">' + (o.exploited || 0) + '</div></div>' +
+      '<div class="stage prog"><div class="nm">Partial</div><div class="cnt">' + (o.partial || 0) + '</div></div>' +
+      '<div class="stage done"><div class="nm">Defended</div><div class="cnt">' + (o.defended || 0) + '</div></div>';
   }
 
   function renderFeed(activity, verdicts) {
@@ -507,7 +515,7 @@ _SCRIPT = r"""
     renderTrend(state.resilience_trend || []);
     renderOwasp(state.coverage || {});
     renderCost(state.cost || {});
-    renderFindings(state.finding_lifecycle || {});
+    renderFindings(state.outcomes || {});
     renderFeed(state.agent_activity || [], state.verdicts || {});
   }
 
