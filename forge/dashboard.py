@@ -254,9 +254,6 @@ _STYLE = """
   .costgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
   .costgrid .c .n { font-family: var(--mono); font-size: 21px; font-weight: 640; font-variant-numeric: tabular-nums; }
   .costgrid .c .l { font-size: 11px; color: var(--muted); margin-top: 2px; }
-
-  .foot { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line);
-    color: var(--faint); font-size: 11.5px; font-family: var(--mono); line-height: 1.7; }
 """
 
 
@@ -269,8 +266,6 @@ _BODY = """
     <span class="runstate" id="runstate" hidden><span class="pulse"></span>run in progress</span>
     <span class="live" id="refresh-pill">&#8635; next refresh <span class="num" id="refresh-count">5</span>s</span>
   </div>
-  <p class="note"># every tile maps 1:1 to a field of the merged 016 read-model (snapshot()). Accent #2968e6 (same in light &amp; dark). Toggle OS/theme for both palettes.</p>
-
   <div class="grid">
 
     <!-- KPI widgets -->
@@ -328,20 +323,20 @@ _BODY = """
     </div>
 
     <!-- owasp coverage -->
-    <div class="w c4">
-      <div class="whead"><span class="wt"><span class="id">04</span> OWASP coverage</span><span class="wtag">coverage()</span></div>
+    <div class="w c5">
+      <div class="whead"><span class="wt"><span class="id">03</span> OWASP coverage</span><span class="wtag">coverage()</span></div>
       <div class="heat" id="owasp-heat"></div>
     </div>
 
     <!-- cost -->
-    <div class="w c4">
+    <div class="w c3">
       <div class="whead"><span class="wt"><span class="id">04</span> Cost</span><span class="wtag">cost()</span></div>
       <div class="costgrid" id="cost-grid"></div>
     </div>
 
     <!-- finding lifecycle -->
     <div class="w c4">
-      <div class="whead"><span class="wt"><span class="id">05</span> Findings</span><span class="wtag">outcomes</span></div>
+      <div class="whead"><span class="wt"><span class="id">05</span> Findings</span><span class="wtag">outcomes()</span></div>
       <div class="pipe" id="findings-pipe"></div>
     </div>
 
@@ -357,11 +352,6 @@ _BODY = """
       <div class="feed" id="agent-feed"></div>
     </div>
 
-  </div>
-
-  <div class="foot">
-    forge serve → GET /api/state (016 snapshot) · self-contained HTML · polls + re-renders every tile · deployable to Railway<br>
-    accent #2968e6 (same in light &amp; dark) · semantic verdict trio kept independent · mono for all data · tabular figures
   </div>
 </div>
 """
