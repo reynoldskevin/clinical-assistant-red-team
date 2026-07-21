@@ -259,6 +259,10 @@ def parse_args(argv) -> argparse.Namespace:
     run_p.add_argument("--category", type=str, default=None)
     run_p.add_argument("--suite", action="store_true", default=False)
     run_p.add_argument("--pid", type=int, default=1)
+
+    serve_p = sub.add_parser("serve", help="serve the live demo dashboard")
+    serve_p.add_argument("--host", type=str, default=None)
+    serve_p.add_argument("--port", type=int, default=None)
     return parser.parse_args(argv)
 
 
@@ -289,6 +293,16 @@ def main(argv=None) -> int:
     import os
 
     args = parse_args(argv)
+
+    if args.command == "serve":
+        from forge.dashboard import resolve_bind, serve
+
+        host, port = resolve_bind(args, os.environ)
+        store = Store(os.environ.get("FORGE_DB_PATH", "forge.db"))
+        cases = load_cases()
+        serve(store, host=host, port=port, cases=cases)
+        return 0
+
     if not args.suite and not args.category:
         print("error: specify --category <name> or --suite")
         return 2

@@ -1,7 +1,7 @@
 ---
 id: 029
 title: Live demo dashboard (forge serve) over the 016 read-model
-status: tests-authored # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [016]
 branch: ticket/029-live-dashboard
 base_branch: main

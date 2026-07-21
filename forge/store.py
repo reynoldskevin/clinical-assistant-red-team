@@ -80,7 +80,7 @@ class Store:
     """Migration-aware SQLite store for attempts, findings, and events."""
 
     def __init__(self, db_path, extra_migrations: list[Migration] | None = None):
-        self.conn = sqlite3.connect(db_path)
+        self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         # Manual transaction control (autocommit-off/manual mode). With the legacy
         # sqlite3 module this lets an explicit BEGIN wrap DDL (ALTER/CREATE) so a
