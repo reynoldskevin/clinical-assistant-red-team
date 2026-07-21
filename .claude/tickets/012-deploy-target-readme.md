@@ -1,7 +1,7 @@
 ---
 id: 012
 title: Deploy target to Railway + README (deployed URL hard gate)
-status: todo # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [005]
 branch: ticket/012-deploy-target-readme
 base_branch: main
