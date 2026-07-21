@@ -1,4 +1,4 @@
-# agent-forge-adversarial
+# Agent Forge Adversarial
 
 `agent-forge-adversarial` is a Python (stdlib-first) autonomous red-team platform
 that attacks the **OpenEMR AI Clinical Co-Pilot** sidecar. The attack loop is:
@@ -7,6 +7,14 @@ exploit/event store → observability read-model → live dashboard. You run one
 attack category with `forge run --category <c>` (or `python -m forge run
 --category <c>`) and serve the dashboard with `forge serve` (or `python -m forge
 serve`).
+
+## Contents
+Deployed URLs [here](#deployed-urls)\
+Target under test [here](#target-under-test)\
+How the target is reached / made testable [here](#how-the-target-is-reached--made-testable)\
+Data Handling & Retention [here](#data-handling--retention)\
+Running instructions [here](#running-instructions)\
+Engineering Deliverables [here]()
 
 ## Deployed URLs
 
@@ -35,9 +43,10 @@ bounds the blast radius of any exfiltration attack or harmful generated content.
 
 ## How the target is reached / made testable
 
-The Co-Pilot's attack surface was **not modified**. It was simply deployed to
-Railway with synthetic data. The platform reaches it exclusively through the
-**Target Adapter** (`forge/target.py`), which is the sole egress path:
+Other than a performance issue (documented below) the Co-Pilot's attack surface 
+was **not modified**. It was simply deployed to Railway with synthetic data. The platform 
+reaches it exclusively through the **Target Adapter** (`forge/target.py`), which is the 
+sole egress path:
 
 - It resolves a **target id** against the ticket-023 allowlist — never a raw URL
   — as SSRF protection.
@@ -53,6 +62,20 @@ Railway with synthetic data. The platform reaches it exclusively through the
 The `TARGET_BASE_URL` environment variable selects the target; when it is unset,
 the live smoke test skips cleanly.
 
+### Performance Improvements
+
+Each patient chart fired ~10,000 MySQL queries, and the database lived in a separate 
+Railway service reached over the private-network overlay at ~3.3 ms per round-trip. 
+That's 10,000 × 3.3 ms ≈ 33 s per chart — the latency itself was the bottleneck, not 
+query complexity or PHP.
+
+The fix was to co-locate the database in the app container instead of talking to a 
+remote MySQL service, the app now runs its own MariaDB 11.4 inside the same container, 
+reached over the loopback socket at ~0.037 ms/query — roughly 89× faster. Same ~10,000 
+queries, but the round-trip cost collapses.
+
+Result: charts went from ~33 s to ~1.5 s (measured on the live demo).
+
 ## Data handling & retention
 
 - Every `/ask` and `/extract` call is persisted as an **append-only** event in
@@ -61,10 +84,16 @@ the live smoke test skips cleanly.
 - **Retention:** transcripts are retained for the life of the evaluation database
   and can be cleared by deleting the SQLite DB file.
 
-## Running
+## Running Instructions
 
 - Run one attack category: `forge run --category <c>` (or
   `python -m forge run --category <c>`).
 - Serve the dashboard: `forge serve` (or `python -m forge serve`).
 - Point the adapter at a live target by setting `TARGET_BASE_URL`; leave it unset
   to run against the injected transport and skip the live smoke test.
+
+
+## Engineering Deliverables
+Threat Model [here](THREAT_MODEL.md)\
+Architecture [here](ARCHITECTURE.md)\
+Architecture Diagram [here](ARCHITECTURE_DIAGRAM.md)\
