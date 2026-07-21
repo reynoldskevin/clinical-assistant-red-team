@@ -9,8 +9,12 @@ These tests are the FIXED contract for the LLM seam. They pin:
 - The model id is passed through per call (never hardcoded).
 
 The injected client must expose `.messages.create(model=..., messages=..., max_tokens=...,
-system=..., temperature=...)` and return an object shaped like the Anthropic SDK response:
+system=...)` and return an object shaped like the Anthropic SDK response:
 `.content[0].text`, `.usage.input_tokens`, `.usage.output_tokens`, `.model`.
+
+NOTE: the Claude 5 / Opus 4.8 family REJECTS a `temperature` argument (HTTP 400
+"temperature is deprecated for this model"). `ClaudeClient` must therefore never forward
+`temperature` to the API, and must omit `system` when it is None.
 """
 
 from types import SimpleNamespace
@@ -137,6 +141,30 @@ def test_llm_error_is_distinct_type():
 
     assert issubclass(LLMError, Exception)
     assert LLMError is not Exception
+
+
+def test_temperature_never_sent_and_system_omitted_when_none():
+    """Claude 5 / Opus 4.8 reject `temperature` (400). ClaudeClient must never
+    forward it — even when the caller passes an explicit value — and must omit a
+    None `system`, while still forwarding model/messages/max_tokens and a real system.
+    """
+    client, fake, _ = _make_client([_fake_response(), _fake_response()])
+
+    client.complete(MESSAGES, model="claude-sonnet-5")                         # system default None
+    client.complete(MESSAGES, model="claude-opus-4-8", system="stay safe", temperature=0.0)
+
+    c0, c1 = fake.messages.calls
+    # temperature is never forwarded (neither the default nor an explicit value)
+    assert "temperature" not in c0
+    assert "temperature" not in c1
+    # system omitted when None, forwarded when provided
+    assert "system" not in c0
+    assert c1["system"] == "stay safe"
+    # core kwargs always present
+    for c in (c0, c1):
+        assert c["model"]
+        assert c["messages"] == MESSAGES
+        assert c["max_tokens"] == 1024
 
 
 def test_non_transient_error_wrapped_without_retry():
