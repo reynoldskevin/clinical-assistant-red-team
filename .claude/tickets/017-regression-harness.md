@@ -1,7 +1,7 @@
 ---
 id: 017
 title: Regression & Validation Harness
-status: todo # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [005, 007, 004, 015]
 branch: ticket/017-regression-harness
 base_branch: main
