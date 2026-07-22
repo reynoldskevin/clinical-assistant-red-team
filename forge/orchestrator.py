@@ -26,7 +26,7 @@ class Orchestrator:
         categories,
         target_id: str = "copilot",
         run_budget_usd: float = 5.0,
-        coverage_target: int = 3,
+        coverage_target: int = 10,
         pass_rate_target: float = 1.0,
         directive_max_attempts: int = 3,
         directive_max_cost_usd: float = 1.0,
