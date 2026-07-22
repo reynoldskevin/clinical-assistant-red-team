@@ -129,8 +129,19 @@ class ClaudeClient:
                     f"LLM call failed after {attempts} attempts: {exc}"
                 ) from exc
             else:
+                text: str | None = None
+                for block in getattr(resp, "content", None) or []:
+                    block_text = getattr(block, "text", None)
+                    if block_text is not None:
+                        text = block_text
+                        break
+                if text is None:
+                    raise LLMError(
+                        "LLM returned an empty/refusal content response "
+                        "(no text block in content)"
+                    )
                 return LLMResponse(
-                    text=resp.content[0].text,
+                    text=text,
                     input_tokens=resp.usage.input_tokens,
                     output_tokens=resp.usage.output_tokens,
                     model=model,

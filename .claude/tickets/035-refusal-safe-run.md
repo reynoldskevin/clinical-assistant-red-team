@@ -1,7 +1,7 @@
 ---
 id: 035
 title: Refusal-safe LLM unwrap + suite failure isolation
-status: tests-authored # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [002, 009]
 branch: ticket/035-refusal-safe-run
 base_branch: main
