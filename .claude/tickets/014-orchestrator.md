@@ -1,7 +1,7 @@
 ---
 id: 014
 title: Orchestrator agent (prioritize · budget · trigger)
-status: todo # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [016]
 branch: ticket/014-orchestrator
 base_branch: main
