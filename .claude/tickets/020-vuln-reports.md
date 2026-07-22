@@ -1,7 +1,7 @@
 ---
 id: 020
 title: Produce ≥3 distinct Vulnerability Reports
-status: tests-authored # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [018, 015, 017]
 branch: ticket/020-vuln-reports
 base_branch: main
