@@ -1,7 +1,7 @@
 ---
 id: 019b
 title: Expand seed corpus depth to >=10 cases per category
-status: todo # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [008, 014]
 branch: ticket/019b-seed-corpus-depth
 base_branch: main
