@@ -1,7 +1,7 @@
 ---
 id: 019
 title: OWASP coverage completion (mandatory engineering)
-status: todo # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [008, 016]
 branch: ticket/019-owasp-coverage
 base_branch: main
