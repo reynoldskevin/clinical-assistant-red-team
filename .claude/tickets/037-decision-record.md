@@ -1,7 +1,7 @@
 ---
 id: 037
 title: Build-vs-configure decision record
-status: tests-authored # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: []
 branch: ticket/037-decision-record
 base_branch: main
