@@ -175,6 +175,19 @@ class Observability:
         return activity
 
     # ------------------------------------------------------------------ #
+    # agent-level cost from trace spans (ticket 024)
+    # ------------------------------------------------------------------ #
+    def agent_cost(self) -> dict[str, float]:
+        by_agent: dict[str, float] = {}
+        for ev in self.store.get_events():
+            if ev.get("kind") != "trace_span":
+                continue
+            agent = ev.get("agent")
+            cost = ev.get("cost_usd", 0.0) or 0.0
+            by_agent[agent] = by_agent.get(agent, 0.0) + cost
+        return by_agent
+
+    # ------------------------------------------------------------------ #
     # combined snapshot
     # ------------------------------------------------------------------ #
     def snapshot(self) -> dict:
