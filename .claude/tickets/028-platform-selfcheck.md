@@ -1,7 +1,7 @@
 ---
 id: 028
 title: Platform self-regression suite (invariants + novelty)
-status: tests-authored # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [018, 024]
 branch: ticket/028-platform-selfcheck
 base_branch: main
