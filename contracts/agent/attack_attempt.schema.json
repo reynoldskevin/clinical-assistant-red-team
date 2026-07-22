@@ -1,0 +1,48 @@
+{
+  "properties": {
+    "schema_version": {
+      "default": "v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "category": {
+      "title": "Category",
+      "type": "string"
+    },
+    "prompt": {
+      "title": "Prompt",
+      "type": "string"
+    },
+    "target_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Id"
+    },
+    "turns": {
+      "default": 1,
+      "title": "Turns",
+      "type": "integer"
+    },
+    "transcript": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Transcript",
+      "type": "array"
+    }
+  },
+  "required": [
+    "category",
+    "prompt"
+  ],
+  "title": "AttackAttempt",
+  "type": "object"
+}

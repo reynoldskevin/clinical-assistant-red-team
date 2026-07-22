@@ -1,0 +1,64 @@
+{
+  "properties": {
+    "schema_version": {
+      "default": "v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "severity": {
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "description": {
+      "title": "Description",
+      "type": "string"
+    },
+    "clinical_impact": {
+      "title": "Clinical Impact",
+      "type": "string"
+    },
+    "reproduction": {
+      "title": "Reproduction",
+      "type": "string"
+    },
+    "observed": {
+      "title": "Observed",
+      "type": "string"
+    },
+    "expected": {
+      "title": "Expected",
+      "type": "string"
+    },
+    "remediation": {
+      "title": "Remediation",
+      "type": "string"
+    },
+    "status": {
+      "default": "draft",
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "severity",
+    "description",
+    "clinical_impact",
+    "reproduction",
+    "observed",
+    "expected",
+    "remediation"
+  ],
+  "title": "VulnReport",
+  "type": "object"
+}

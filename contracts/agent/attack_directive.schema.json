@@ -1,0 +1,40 @@
+{
+  "properties": {
+    "schema_version": {
+      "default": "v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "category": {
+      "title": "Category",
+      "type": "string"
+    },
+    "seed": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Seed"
+    },
+    "max_attempts": {
+      "default": 1,
+      "title": "Max Attempts",
+      "type": "integer"
+    },
+    "max_cost_usd": {
+      "default": 1.0,
+      "title": "Max Cost Usd",
+      "type": "number"
+    }
+  },
+  "required": [
+    "category"
+  ],
+  "title": "AttackDirective",
+  "type": "object"
+}

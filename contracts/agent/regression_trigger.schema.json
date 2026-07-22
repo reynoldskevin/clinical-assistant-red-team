@@ -1,0 +1,40 @@
+{
+  "properties": {
+    "schema_version": {
+      "default": "v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "reason": {
+      "enum": [
+        "target_version_change",
+        "time_window",
+        "manual"
+      ],
+      "title": "Reason",
+      "type": "string"
+    },
+    "target_id": {
+      "title": "Target Id",
+      "type": "string"
+    },
+    "target_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Version"
+    }
+  },
+  "required": [
+    "reason",
+    "target_id"
+  ],
+  "title": "RegressionTrigger",
+  "type": "object"
+}

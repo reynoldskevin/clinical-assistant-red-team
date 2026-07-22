@@ -1,7 +1,7 @@
 ---
 id: 036
 title: Inter-agent contract publication + versioning
-status: tests-authored # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [028]
 branch: ticket/036-agent-contracts
 base_branch: main
