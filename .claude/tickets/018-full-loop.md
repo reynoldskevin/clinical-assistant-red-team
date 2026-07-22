@@ -1,7 +1,7 @@
 ---
 id: 018
 title: Wire the full autonomous loop
-status: todo # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [013, 014, 015, 016, 017]
 branch: ticket/018-full-loop
 base_branch: ticket/017-regression-harness
