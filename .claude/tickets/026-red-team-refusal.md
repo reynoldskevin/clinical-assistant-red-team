@@ -1,7 +1,7 @@
 ---
 id: 026
 title: Red Team refusal detection + reframe
-status: tests-authored # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [006, 013]
 branch: ticket/026-red-team-refusal
 base_branch: main
