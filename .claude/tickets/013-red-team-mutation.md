@@ -1,7 +1,7 @@
 ---
 id: 013
 title: Red Team mutation & multi-turn escalation
-status: todo # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [006, 007]
 branch: ticket/013-red-team-mutation
 base_branch: main
