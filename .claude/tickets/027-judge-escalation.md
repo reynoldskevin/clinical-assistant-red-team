@@ -1,7 +1,7 @@
 ---
 id: 027
 title: Judge low-confidence escalation + per-category rubric spec
-status: tests-authored # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [007]
 branch: ticket/027-judge-escalation
 base_branch: main
