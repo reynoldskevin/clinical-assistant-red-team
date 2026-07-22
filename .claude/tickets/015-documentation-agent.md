@@ -1,7 +1,7 @@
 ---
 id: 015
 title: Documentation agent (report · data-quality · human gate)
-status: todo # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [004, 007]
 branch: ticket/015-documentation-agent
 base_branch: main
