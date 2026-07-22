@@ -116,6 +116,17 @@ class CategorySummary:
         return self.exploits == 0
 
 
+class SuiteAborted(Exception):
+    """Raised to stop a suite run cleanly after the failure budget is exhausted.
+
+    Carries the accumulated failure count so callers can report it.
+    """
+
+    def __init__(self, failures: int) -> None:
+        super().__init__(f"suite aborted after {failures} failures")
+        self.failures = failures
+
+
 @dataclass
 class RunSummary:
     categories: dict[str, CategorySummary] = field(default_factory=dict)
@@ -143,74 +154,112 @@ def _severity_from_confidence(confidence: float) -> str:
 class Runner:
     """Orchestrates Red Team -> Judge over categories, persisting everything."""
 
-    def __init__(self, store, red_team, judge, *, pid: int, cost_meter: CostMeter | None = None) -> None:
+    def __init__(
+        self,
+        store,
+        red_team,
+        judge,
+        *,
+        pid: int,
+        cost_meter: CostMeter | None = None,
+        max_failures: int | None = None,
+    ) -> None:
         self._store = store
         self._red_team = red_team
         self._judge = judge
         self._pid = pid
         self._cost_meter = cost_meter
+        self._max_failures = max_failures
+        self._failures = 0
 
     def run_category(self, category: str, seeds: list[str] | None = None) -> CategorySummary:
         summary = CategorySummary(category=category)
         seed_list = list(seeds) if seeds else [None]
 
         for seed in seed_list:
-            if self._cost_meter is not None:
-                snap_usd = self._cost_meter.total_usd
-                snap_in = self._cost_meter.total_in
-                snap_out = self._cost_meter.total_out
+            try:
+                if self._cost_meter is not None:
+                    snap_usd = self._cost_meter.total_usd
+                    snap_in = self._cost_meter.total_in
+                    snap_out = self._cost_meter.total_out
 
-            directive = AttackDirective(category=category, seed=seed, max_attempts=1)
-            attempts = self._red_team.run(directive, self._pid)
+                directive = AttackDirective(category=category, seed=seed, max_attempts=1)
+                attempts = self._red_team.run(directive, self._pid)
 
-            for attempt in attempts:
-                attempt_id = self._store.insert_attempt(attempt.model_dump())
-                self._store.append_event(
-                    {"kind": "attack", "attempt_id": attempt_id, "category": category}
-                )
-                verdict = self._judge.evaluate(attempt)
-                self._store.append_event(
-                    {
-                        "kind": "verdict",
-                        "attempt_id": attempt_id,
-                        "category": category,
-                        "verdict": verdict.verdict,
-                        "confidence": verdict.confidence,
-                    }
-                )
-                summary.record(verdict.verdict)
-
-                if verdict.verdict == "success":
-                    self._store.insert_finding(
+                for attempt in attempts:
+                    attempt_id = self._store.insert_attempt(attempt.model_dump())
+                    self._store.append_event(
+                        {"kind": "attack", "attempt_id": attempt_id, "category": category}
+                    )
+                    verdict = self._judge.evaluate(attempt)
+                    self._store.append_event(
                         {
-                            "severity": _severity_from_confidence(verdict.confidence),
-                            "attack_category": category,
-                            "status": "open",
+                            "kind": "verdict",
                             "attempt_id": attempt_id,
-                            "rationale": verdict.rationale,
-                            "owasp_web": verdict.owasp_web,
-                            "owasp_llm": verdict.owasp_llm,
+                            "category": category,
+                            "verdict": verdict.verdict,
+                            "confidence": verdict.confidence,
                         }
                     )
+                    summary.record(verdict.verdict)
 
-            if self._cost_meter is not None:
-                self._store.insert_cost(
+                    if verdict.verdict == "success":
+                        self._store.insert_finding(
+                            {
+                                "severity": _severity_from_confidence(verdict.confidence),
+                                "attack_category": category,
+                                "status": "open",
+                                "attempt_id": attempt_id,
+                                "rationale": verdict.rationale,
+                                "owasp_web": verdict.owasp_web,
+                                "owasp_llm": verdict.owasp_llm,
+                            }
+                        )
+
+                if self._cost_meter is not None:
+                    self._store.insert_cost(
+                        {
+                            "category": category,
+                            "input_tokens": self._cost_meter.total_in - snap_in,
+                            "output_tokens": self._cost_meter.total_out - snap_out,
+                            "usd": self._cost_meter.total_usd - snap_usd,
+                        }
+                    )
+            except SuiteAborted:
+                raise
+            except Exception as exc:  # noqa: BLE001 - isolate a failed generation
+                self._failures += 1
+                self._store.append_event(
                     {
+                        "kind": "attempt_error",
                         "category": category,
-                        "input_tokens": self._cost_meter.total_in - snap_in,
-                        "output_tokens": self._cost_meter.total_out - snap_out,
-                        "usd": self._cost_meter.total_usd - snap_usd,
+                        "reason": f"{type(exc).__name__}: {exc}",
                     }
                 )
+                if self._max_failures is not None and self._failures >= self._max_failures:
+                    self._store.append_event(
+                        {
+                            "kind": "circuit_breaker",
+                            "reason": "max_failures_exceeded",
+                            "failures": self._failures,
+                        }
+                    )
+                    raise SuiteAborted(self._failures) from exc
+                continue
 
         return summary
 
     def run_suite(self, seeds_by_category: dict[str, list[str]]) -> RunSummary:
         self._store.append_event({"kind": "run_start", "pid": self._pid})
+        self._failures = 0
         categories: dict[str, CategorySummary] = {}
-        for category, seeds in seeds_by_category.items():
-            categories[category] = self.run_category(category, seeds)
-        self._store.append_event({"kind": "run_end"})
+        try:
+            for category, seeds in seeds_by_category.items():
+                categories[category] = self.run_category(category, seeds)
+        except SuiteAborted:
+            pass
+        finally:
+            self._store.append_event({"kind": "run_end"})
         total = self._cost_meter.total_usd if self._cost_meter is not None else 0.0
         return RunSummary(categories=categories, total_cost_usd=total)
 
