@@ -278,6 +278,55 @@ _STYLE = """
   .costgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
   .costgrid .c .n { font-family: var(--mono); font-size: 21px; font-weight: 640; font-variant-numeric: tabular-nums; }
   .costgrid .c .l { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* ---- reports button + modal ---- */
+  .reportbtn { margin-top: 11px; align-self: flex-start; cursor: pointer;
+    font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .04em;
+    color: var(--crit); background: var(--crit-bg); border: 1px solid rgba(255,92,108,.35);
+    padding: 5px 11px; border-radius: 999px; }
+  .reportbtn:hover { filter: brightness(1.07); }
+  .reportbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .modal[hidden] { display: none; }
+  .modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center;
+    justify-content: center; padding: 24px; background: rgba(4,8,14,.62); }
+  .modal-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    width: min(760px, 100%); max-height: 84vh; display: flex; flex-direction: column;
+    box-shadow: 0 24px 60px -20px rgba(0,0,0,.6); overflow: hidden; }
+  .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 15px 18px; border-bottom: 1px solid var(--line); }
+  .modal-head .mt { font-size: 15px; font-weight: 680; letter-spacing: -.01em; }
+  .modal-head .ms { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .modal-close { cursor: pointer; background: transparent; border: 1px solid var(--line);
+    color: var(--muted); border-radius: 8px; width: 30px; height: 30px; font-size: 17px; line-height: 1; }
+  .modal-close:hover { color: var(--fg); border-color: var(--muted); }
+  .modal-body { overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 9px; }
+  .empty { color: var(--muted); font-family: var(--mono); font-size: 12px; padding: 14px 4px; }
+  /* ---- reports accordion + json viewer ---- */
+  .acc { border: 1px solid var(--line); border-radius: 11px; overflow: hidden; background: var(--panel-2); }
+  .acc-head { display: flex; align-items: center; gap: 11px; width: 100%; cursor: pointer;
+    padding: 12px 14px; background: transparent; border: 0; text-align: left; color: var(--fg);
+    font-family: var(--sans); }
+  .acc-head:hover { background: var(--panel); }
+  .acc-head .rid { font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--accent); }
+  .acc-head .rmeta { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-left: auto;
+    font-variant-numeric: tabular-nums; }
+  .acc-head .caret { transition: transform .18s; color: var(--muted); flex: none; font-size: 15px; }
+  .acc.open .acc-head .caret { transform: rotate(90deg); }
+  .acc-body { display: none; border-top: 1px solid var(--line); }
+  .acc.open .acc-body { display: block; }
+  .acc-tools { display: flex; justify-content: flex-end; padding: 10px 12px 0; }
+  .dlbtn { cursor: pointer; font-family: var(--mono); font-size: 11px; font-weight: 600;
+    color: var(--accent); background: transparent; border: 1px solid var(--accent);
+    padding: 4px 11px; border-radius: 8px; }
+  .dlbtn:hover { background: var(--accent-bg); }
+  .json { margin: 10px 12px 13px; font-family: var(--mono); font-size: 12px; line-height: 1.55;
+    white-space: pre; overflow-x: auto; color: var(--fg); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 9px; padding: 12px 13px; }
+  .json .k { color: var(--accent); }
+  .json .s { color: var(--good); }
+  .json .n { color: var(--warn); }
+  .json .b { color: var(--crit); }
+  @media (prefers-reduced-motion: reduce) { .acc-head .caret { transition: none; } }
 """
 
 
@@ -316,6 +365,7 @@ _BODY = """
       <div class="whead"><span class="wt">Exploits</span></div>
       <div class="val" id="kpi-exploits">—</div>
       <div class="delta down" id="kpi-exploits-sub">open findings</div>
+      <button type="button" class="reportbtn" id="view-reports">View reports</button>
     </div>
     <div class="w c3 kpi">
       <div class="whead"><span class="wt">Cost / run</span></div>
@@ -380,6 +430,17 @@ _BODY = """
       <div class="feed" id="agent-feed"></div>
     </div>
 
+  </div>
+
+  <!-- vulnerability reports modal -->
+  <div class="modal" id="reports-modal" hidden role="dialog" aria-modal="true" aria-label="Vulnerability reports">
+    <div class="modal-panel">
+      <div class="modal-head">
+        <div><div class="mt">Vulnerability reports</div><div class="ms" id="reports-count"></div></div>
+        <button type="button" class="modal-close" id="reports-close" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body" id="reports-accordion"></div>
+    </div>
   </div>
 </div>
 """
@@ -612,6 +673,102 @@ _SCRIPT = r"""
     });
   }
 
+  // ---- vulnerability reports modal ----
+  var SEV_CLASS = { critical: "s-crit", high: "s-high", medium: "s-med", low: "s-low" };
+
+  function fmtReportTs(sec) {
+    if (sec == null) return "";
+    try { return new Date(sec * 1000).toLocaleString(); } catch (e) { return ""; }
+  }
+  function syntaxHighlight(obj) {
+    var json = JSON.stringify(obj, null, 2)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return json.replace(
+      /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+      function (m) {
+        var cls = "n";
+        if (/^"/.test(m)) { cls = /:$/.test(m) ? "k" : "s"; }
+        else if (/true|false|null/.test(m)) { cls = "b"; }
+        return '<span class="' + cls + '">' + m + "</span>";
+      }
+    );
+  }
+  function downloadFile(filename, text) {
+    var blob = new Blob([text], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 0);
+  }
+  function embeddedReports() {
+    var el = document.getElementById("reports-initial");
+    if (!el) return null;
+    try { return (JSON.parse(el.textContent) || {}).reports || []; } catch (e) { return null; }
+  }
+  function renderReports(reports) {
+    reports = reports || [];
+    var body = document.getElementById("reports-accordion");
+    var cnt = document.getElementById("reports-count");
+    if (cnt) cnt.textContent = reports.length + (reports.length === 1 ? " report" : " reports");
+    if (!reports.length) {
+      body.innerHTML = '<div class="empty">No reports found in the reports folder.</div>';
+      return;
+    }
+    body.innerHTML = reports.map(function (r, i) {
+      var sev = (r.content && r.content.severity) || "";
+      var sevcls = SEV_CLASS[sev] || "s-low";
+      var ts = fmtReportTs(r.modified);
+      var pretty = r.content != null ? syntaxHighlight(r.content) : esc(r.error || "(unreadable)");
+      return '<div class="acc" data-i="' + i + '">' +
+        '<button type="button" class="acc-head">' +
+          '<span class="sev ' + sevcls + '"></span>' +
+          '<span class="rid">' + esc(r.id) + "</span>" +
+          '<span class="rmeta">' + (ts ? esc(ts) : "") + "</span>" +
+          '<span class="caret">&rsaquo;</span>' +
+        "</button>" +
+        '<div class="acc-body">' +
+          '<div class="acc-tools"><button type="button" class="dlbtn" data-i="' + i + '">Download JSON</button></div>' +
+          '<pre class="json">' + pretty + "</pre>" +
+        "</div></div>";
+    }).join("");
+    Array.prototype.forEach.call(body.querySelectorAll(".acc-head"), function (h) {
+      h.addEventListener("click", function () { h.parentNode.classList.toggle("open"); });
+    });
+    Array.prototype.forEach.call(body.querySelectorAll(".dlbtn"), function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var r = reports[+btn.getAttribute("data-i")];
+        downloadFile(r.filename, JSON.stringify(r.content, null, 2));
+      });
+    });
+  }
+  function openReports() {
+    var modal = document.getElementById("reports-modal");
+    if (modal) modal.hidden = false;
+    fetch("/api/reports", { cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var reps = (d && d.reports) || [];
+        if (!reps.length) { var emb = embeddedReports(); if (emb) reps = emb; }
+        renderReports(reps);
+      })
+      .catch(function () { renderReports(embeddedReports() || []); });
+  }
+  function closeReports() {
+    var modal = document.getElementById("reports-modal");
+    if (modal) modal.hidden = true;
+  }
+  function wireReports() {
+    var open = document.getElementById("view-reports");
+    if (open) open.addEventListener("click", openReports);
+    var close = document.getElementById("reports-close");
+    if (close) close.addEventListener("click", closeReports);
+    var modal = document.getElementById("reports-modal");
+    if (modal) modal.addEventListener("click", function (e) { if (e.target === modal) closeReports(); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeReports(); });
+  }
+
   function render(state) {
     if (!state) return;
     render.state = state;
@@ -654,6 +811,7 @@ _SCRIPT = r"""
     initial = JSON.parse(document.getElementById("initial-state").textContent);
   } catch (e) { initial = null; }
   wireStartButton();
+  wireReports();
   render(initial);
   paintCount();
   setInterval(tick, 1000);
@@ -686,13 +844,17 @@ def render_html(state: dict) -> str:
 # --------------------------------------------------------------------------- #
 # routing
 # --------------------------------------------------------------------------- #
-def handle_path(path, state_provider):
-    """Pure router. ``state_provider`` is called fresh for every request."""
+def handle_path(path, state_provider, reports_provider=None):
+    """Pure router. ``state_provider`` (and ``reports_provider``, if given) are
+    called fresh for every request."""
     clean = path.split("?", 1)[0]
     if clean in ("/", "/index.html"):
         return (200, "text/html; charset=utf-8", render_html(state_provider()))
     if clean == "/api/state":
         return (200, "application/json", json.dumps(state_provider()))
+    if clean == "/api/reports":
+        reports = reports_provider() if reports_provider else []
+        return (200, "application/json", json.dumps({"reports": reports}))
     if clean == "/health":
         return (200, "application/json", json.dumps({"status": "ok"}))
     return (404, "text/plain; charset=utf-8", "not found")
@@ -730,11 +892,46 @@ def _default_run_launcher():
     )
 
 
+def load_reports(reports_dir="reports"):
+    """List the vulnerability-report JSON files under ``reports_dir``.
+
+    Returns a list of ``{id, filename, modified, content}`` (newest first).
+    ``id`` comes from the report's own ``id`` field, falling back to the file
+    stem; ``modified`` is the file mtime (epoch seconds — reports carry no
+    timestamp of their own). Unreadable JSON is surfaced with ``content=None``
+    and an ``error`` key rather than dropped. A missing dir yields ``[]``.
+    """
+    import pathlib
+
+    directory = pathlib.Path(reports_dir)
+    out = []
+    if not directory.is_dir():
+        return out
+    for path in sorted(directory.glob("*.json")):
+        try:
+            content = json.loads(path.read_text())
+            error = None
+        except (OSError, ValueError) as exc:
+            content, error = None, str(exc)
+        rid = content.get("id") if isinstance(content, dict) else None
+        item = {
+            "id": rid or path.stem,
+            "filename": path.name,
+            "modified": path.stat().st_mtime,
+            "content": content,
+        }
+        if error:
+            item["error"] = error
+        out.append(item)
+    out.sort(key=lambda r: r["modified"], reverse=True)
+    return out
+
+
 # --------------------------------------------------------------------------- #
 # server
 # --------------------------------------------------------------------------- #
 def make_server(store, *, host="0.0.0.0", port=8000, cases=None,
-                run_launcher=None, run_token=None):
+                run_launcher=None, run_token=None, reports_dir=None):
     """A bound ThreadingHTTPServer serving the live dashboard over ``store``.
 
     ``POST /api/run`` triggers a suite run, gated by ``run_token`` (defaults to
@@ -745,9 +942,13 @@ def make_server(store, *, host="0.0.0.0", port=8000, cases=None,
 
     launcher = run_launcher or _default_run_launcher
     token_cfg = run_token if run_token is not None else os.environ.get("FORGE_RUN_TOKEN", "")
+    reports_dir_cfg = reports_dir if reports_dir is not None else os.environ.get("FORGE_REPORTS_DIR", "reports")
 
     def state_provider():
         return build_state(Observability(store, cases=cases))
+
+    def reports_provider():
+        return load_reports(reports_dir_cfg)
 
     def _respond(handler, status, ctype, body):
         data = body.encode("utf-8")
@@ -759,7 +960,7 @@ def make_server(store, *, host="0.0.0.0", port=8000, cases=None,
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):  # noqa: N802
-            _respond(self, *handle_path(self.path, state_provider))
+            _respond(self, *handle_path(self.path, state_provider, reports_provider))
 
         def do_POST(self):  # noqa: N802
             clean = self.path.split("?", 1)[0]
