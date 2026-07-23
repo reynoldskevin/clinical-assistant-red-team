@@ -292,6 +292,7 @@ _STYLE = """
 
   /* ---- owasp coverage ---- */
   .heat { display: grid; gap: 8px; }
+  #owasp-heat { min-height: 300px; }
   .heatrow { display: grid; grid-template-columns: 400px 1fr 35px; align-items: center; gap: 9px; font-size: 12px; }
   .heatrow .idc { font-family: var(--mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .heatrow .idc b { color: var(--fg); }
@@ -515,7 +516,7 @@ _BODY = """
         <span style="display:flex; gap:7px; flex-wrap:wrap">
           <span class="agentchip orc">orchestrator</span><span class="agentchip red">red_team</span>
           <span class="agentchip jdg">judge</span>
-          <span class="agentchip reg">regression</span><span class="agentchip doc">documentation</span>
+          <span class="agentchip doc">documentation</span><span class="agentchip reg">regression</span>
         </span>
       </div>
       <div class="feed" id="agent-feed"></div>
