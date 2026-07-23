@@ -172,6 +172,10 @@ class Runner:
         self._cost_meter = cost_meter
         self._max_failures = max_failures
         self._failures = 0
+        # per-run identity: stamped onto every record a run produces so the
+        # dashboard can scope its stats to a single run (and version the trend).
+        self._run_id: int | None = None
+        self._version: str | None = None
 
     def run_category(self, category: str, seeds: list[str] | None = None) -> CategorySummary:
         summary = CategorySummary(category=category)
@@ -190,7 +194,13 @@ class Runner:
                 for attempt in attempts:
                     attempt_id = self._store.insert_attempt(attempt.model_dump())
                     self._store.append_event(
-                        {"kind": "attack", "attempt_id": attempt_id, "category": category}
+                        {
+                            "kind": "attack",
+                            "attempt_id": attempt_id,
+                            "category": category,
+                            "run_id": self._run_id,
+                            "target_version": self._version,
+                        }
                     )
                     verdict = self._judge.evaluate(attempt)
                     self._store.append_event(
@@ -200,6 +210,8 @@ class Runner:
                             "category": category,
                             "verdict": verdict.verdict,
                             "confidence": verdict.confidence,
+                            "run_id": self._run_id,
+                            "target_version": self._version,
                         }
                     )
                     summary.record(verdict.verdict)
@@ -214,6 +226,8 @@ class Runner:
                                 "rationale": verdict.rationale,
                                 "owasp_web": verdict.owasp_web,
                                 "owasp_llm": verdict.owasp_llm,
+                                "run_id": self._run_id,
+                                "target_version": self._version,
                             }
                         )
 
@@ -224,6 +238,8 @@ class Runner:
                             "input_tokens": self._cost_meter.total_in - snap_in,
                             "output_tokens": self._cost_meter.total_out - snap_out,
                             "usd": self._cost_meter.total_usd - snap_usd,
+                            "run_id": self._run_id,
+                            "version": self._version,
                         }
                     )
             except SuiteAborted:
@@ -251,8 +267,15 @@ class Runner:
         return summary
 
     def run_suite(self, seeds_by_category: dict[str, list[str]]) -> RunSummary:
-        self._store.append_event(
-            {"kind": "run_start", "pid": self._pid, "ts": time.time()}
+        # Mock version per run: v1.0 on the first versioned run, minor++ each run.
+        prior = sum(
+            1
+            for e in self._store.get_events()
+            if e.get("kind") == "run_start" and e.get("version") is not None
+        )
+        self._version = f"v1.{prior}"
+        self._run_id = self._store.append_event(
+            {"kind": "run_start", "pid": self._pid, "ts": time.time(), "version": self._version}
         )
         self._failures = 0
         categories: dict[str, CategorySummary] = {}
@@ -262,7 +285,9 @@ class Runner:
         except SuiteAborted:
             pass
         finally:
-            self._store.append_event({"kind": "run_end", "ts": time.time()})
+            self._store.append_event(
+                {"kind": "run_end", "ts": time.time(), "version": self._version, "run_id": self._run_id}
+            )
         total = self._cost_meter.total_usd if self._cost_meter is not None else 0.0
         return RunSummary(categories=categories, total_cost_usd=total)
 
