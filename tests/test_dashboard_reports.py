@@ -128,3 +128,17 @@ def test_reports_modal_and_client_wiring_present():
     assert "syntaxHighlight" in html        # read-only JSON viewer
     assert "downloadFile" in html           # per-report download
     assert 'role="dialog"' in html
+
+
+def test_modal_header_has_severity_key():
+    html = render_html(build_state(Observability(Store(":memory:"))))
+    # a colour key mapping each pip class to its label, inside the modal header
+    assert 'class="sevkey"' in html
+    for label, cls in (("Critical", "s-crit"), ("High", "s-high"),
+                        ("Medium", "s-med"), ("Low", "s-low")):
+        assert label in html
+        assert cls in html
+    i_head = html.find('class="modal-head"')
+    i_key = html.find('class="sevkey"')
+    i_body = html.find('id="reports-accordion"')
+    assert -1 < i_head < i_key < i_body   # key sits in the header, above the list

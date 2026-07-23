@@ -292,10 +292,14 @@ _STYLE = """
   .modal-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
     width: min(760px, 100%); max-height: 84vh; display: flex; flex-direction: column;
     box-shadow: 0 24px 60px -20px rgba(0,0,0,.6); overflow: hidden; }
-  .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 15px 18px; border-bottom: 1px solid var(--line); }
+  .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px;
+    flex-wrap: wrap; padding: 15px 18px; border-bottom: 1px solid var(--line); }
   .modal-head .mt { font-size: 15px; font-weight: 680; letter-spacing: -.01em; }
   .modal-head .ms { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 2px; }
+  /* severity colour key for the accordion pips */
+  .sevkey { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 14px; margin-left: auto;
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em; color: var(--muted); }
+  .sevkey span { display: inline-flex; align-items: center; gap: 6px; }
   .modal-close { cursor: pointer; background: transparent; border: 1px solid var(--line);
     color: var(--muted); border-radius: 8px; width: 30px; height: 30px; font-size: 17px; line-height: 1; }
   .modal-close:hover { color: var(--fg); border-color: var(--muted); }
@@ -437,6 +441,12 @@ _BODY = """
     <div class="modal-panel">
       <div class="modal-head">
         <div><div class="mt">Vulnerability reports</div><div class="ms" id="reports-count"></div></div>
+        <div class="sevkey" aria-label="Severity key">
+          <span><i class="sev s-crit"></i>Critical</span>
+          <span><i class="sev s-high"></i>High</span>
+          <span><i class="sev s-med"></i>Medium</span>
+          <span><i class="sev s-low"></i>Low</span>
+        </div>
         <button type="button" class="modal-close" id="reports-close" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body" id="reports-accordion"></div>
