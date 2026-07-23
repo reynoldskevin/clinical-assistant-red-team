@@ -46,7 +46,10 @@ def test_build_state_exposes_run_timestamps():
 
 
 def test_build_state_timestamps_none_when_untimestamped():
-    state = build_state(_obs([{"kind": "run_start"}]))
+    # Since ticket 047 the store auto-stamps ``ts`` on every event, so an
+    # "untimestamped" (legacy) run_start is expressed as an explicit ``ts: None``
+    # — build_state must still surface it as None rather than a bogus time.
+    state = build_state(_obs([{"kind": "run_start", "ts": None}]))
     assert state["run_started_at"] is None
     assert state["last_run_ended"] is None
     assert state["run_active"] is True
