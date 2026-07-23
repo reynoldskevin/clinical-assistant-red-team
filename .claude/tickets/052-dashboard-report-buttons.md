@@ -1,7 +1,7 @@
 ---
 id: 052
 title: Dashboard report-button visibility + polish
-status: todo
+status: ready-for-merge
 depends_on: []
 branch: ticket/052-dashboard-report-buttons
 base_branch: main

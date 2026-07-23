@@ -342,7 +342,7 @@ _STYLE = """
 
   /* ---- live agent feed ---- */
   .feed { font-family: var(--mono); font-size: 12px; max-height: 340px; overflow-y: auto; }
-  .feedrow { display: grid; grid-template-columns: 38px 68px 108px 1fr auto; gap: 10px; align-items: center;
+  .feedrow { display: grid; grid-template-columns: 38px 98px 108px 1fr auto; gap: 10px; align-items: center;
     padding: 8px 2px; border-bottom: 1px solid var(--line-soft); }
   .feedrow:last-child { border-bottom: 0; }
   .feedrow .seq { color: var(--faint); font-variant-numeric: tabular-nums; }
@@ -476,6 +476,7 @@ _BODY = """
         <line x1="0" y1="80" x2="320" y2="80" stroke="var(--line)" stroke-width="1"/>
         <path id="trend-area" d="" fill="url(#fill)"/>
         <path id="trend-line" d="" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+        <g id="trend-dots"></g>
         <circle id="trend-dot" cx="320" cy="14" r="4.5" fill="var(--accent)"/>
         <circle id="trend-halo" cx="320" cy="14" r="9" fill="var(--accent)" opacity=".18"/>
       </svg>
@@ -500,8 +501,9 @@ _BODY = """
           <div class="pipe" id="findings-pipe"></div>
         </div>
         <div class="w">
-          <div class="whead"><span class="wt">Known vulnerabilities</span><span class="wtag">regression</span></div>
+          <div class="whead"><span class="wt">Known vulnerabilities</span><span class="wtag">regression()</span></div>
           <div class="pipe" id="known-vulns"></div>
+          <button type="button" class="reportbtn" id="view-reports-kv" hidden>View reports</button>
         </div>
       </div>
     </div>
@@ -604,6 +606,7 @@ _SCRIPT = r"""
       usd(k.usd_per_attempt) + " / attempt";
     document.getElementById("kpi-exploits-sub").textContent =
       k.exploits + (k.exploits === 1 ? " exploit" : " exploits");
+    var vr = document.getElementById("view-reports"); if (vr) vr.hidden = !(k.exploits > 0);
   }
 
   function renderPassFail(pf) {
@@ -642,6 +645,7 @@ _SCRIPT = r"""
       num.textContent = "—"; sub.textContent = ""; cap.textContent = "";
       document.getElementById("trend-area").setAttribute("d", "");
       document.getElementById("trend-line").setAttribute("d", "");
+      document.getElementById("trend-dots").innerHTML = "";
       return;
     }
     var W = 320, H = 80;
@@ -656,6 +660,9 @@ _SCRIPT = r"""
     var area = line + " L" + W + "," + H + " L0," + H + " Z";
     document.getElementById("trend-line").setAttribute("d", line);
     document.getElementById("trend-area").setAttribute("d", area);
+    document.getElementById("trend-dots").innerHTML = pts.map(function (p) {
+      return '<circle cx="' + p[0].toFixed(0) + '" cy="' + p[1].toFixed(0) + '" r="3" fill="var(--accent)"></circle>';
+    }).join("");
     var last = pts[n - 1];
     document.getElementById("trend-dot").setAttribute("cx", last[0].toFixed(0));
     document.getElementById("trend-dot").setAttribute("cy", last[1].toFixed(0));
@@ -665,7 +672,7 @@ _SCRIPT = r"""
     var delta = pct(trend[n - 1].pass_rate) - pct(trend[0].pass_rate);
     cap.textContent = (delta >= 0 ? "▲ +" : "▼ ") + delta + " pts";
     sub.textContent = trend.map(function (p) {
-      return esc(p.version == null ? "?" : p.version) + " " + pct(p.pass_rate);
+      return esc(p.version == null ? "?" : p.version) + " " + pct(p.pass_rate) + "%";
     }).join(" · ");
   }
 
@@ -710,6 +717,7 @@ _SCRIPT = r"""
       '<div class="stage known"><div class="nm">Known</div><div class="cnt">' + (kv.total || 0) + '</div></div>' +
       '<div class="stage open"><div class="nm">Unfixed</div><div class="cnt">' + (kv.vulnerable || 0) + '</div></div>' +
       '<div class="stage done"><div class="nm">Fixed</div><div class="cnt">' + (kv.fixed || 0) + '</div></div>';
+    var b = document.getElementById("view-reports-kv"); if (b) b.hidden = !((kv.vulnerable || 0) > 0);
   }
 
   function fmtFeedTs(ts) {
@@ -903,6 +911,8 @@ _SCRIPT = r"""
   function wireReports() {
     var open = document.getElementById("view-reports");
     if (open) open.addEventListener("click", openReports);
+    var openkv = document.getElementById("view-reports-kv");
+    if (openkv) openkv.addEventListener("click", openReports);
     var close = document.getElementById("reports-close");
     if (close) close.addEventListener("click", closeReports);
     var modal = document.getElementById("reports-modal");
