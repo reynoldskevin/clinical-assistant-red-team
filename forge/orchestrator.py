@@ -100,18 +100,28 @@ class Orchestrator:
         if self._total_usd() >= self.run_budget_usd:
             return None
 
-        # 2. open high/critical-severity finding → re-probe (even if covered)
+        # 2. COVERAGE FLOOR (floor-first): every category must reach
+        # ``coverage_target`` ATTEMPTS before an open finding can monopolize the
+        # loop. Probe the least-covered below-floor category (alpha tie-break).
+        below_floor = [
+            c for c in self.categories if self._category_stats(c)[0] < self.coverage_target
+        ]
+        if below_floor:
+            chosen = min(below_floor, key=lambda c: (self._category_stats(c)[0], c))
+            return self._directive(chosen)
+
+        # 3. open high/critical-severity finding → re-probe (even if covered)
         high_sev = self._open_high_severity_categories()
         if high_sev:
             return self._directive(high_sev[0])
 
-        # 3. coverage gap → least-covered (fewest attempts, alpha tie-break)
+        # 4. residual coverage-sufficiency gap → least-covered (alpha tie-break)
         uncovered = [c for c in self.categories if not self.is_covered(c)]
         if uncovered:
             chosen = min(uncovered, key=lambda c: (self._category_stats(c)[0], c))
             return self._directive(chosen)
 
-        # 4. all covered, nothing open → halt cleanly
+        # 5. all covered, nothing open → halt cleanly
         return None
 
     # ------------------------------------------------------------------ #

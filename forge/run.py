@@ -328,7 +328,7 @@ class Runner:
         total = self._cost_meter.total_usd if self._cost_meter is not None else 0.0
         return RunSummary(categories=categories, total_cost_usd=total)
 
-    def run_autonomous(self) -> RunSummary:
+    def run_autonomous(self, max_directives: int = 500) -> RunSummary:
         """The deployed one-loop run: the Orchestrator selects directives until
         it halts, then regression replay and the Documentation pass run — all
         within the same versioned run window as ``run_suite``."""
@@ -346,7 +346,7 @@ class Runner:
         try:
             # Orchestrator drives the attack phase until it returns None. The
             # safety cap guards against any non-halting strategist.
-            for _ in range(500):
+            for _ in range(max_directives):
                 directive = self._orchestrator.next_directive()
                 if directive is None:
                     break
@@ -466,7 +466,7 @@ def build_autonomous_runner(
 
     obs = Observability(store, cases=cases)
     categories = sorted({c.category for c in cases})
-    orchestrator = Orchestrator(obs, categories=categories)
+    orchestrator = Orchestrator(obs, categories=categories, coverage_target=10)
     documentation = DocumentationAgent(
         store, reports_dir=os.environ.get("FORGE_REPORTS_DIR", "reports")
     )

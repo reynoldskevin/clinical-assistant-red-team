@@ -1,7 +1,7 @@
 ---
 id: 045
 title: Guarantee the 6-category coverage floor (≥10 attempts each) in the autonomous run
-status: tests-authored
+status: ready-for-merge
 depends_on: [044]
 branch: feature/coverage-floor-guarantee
 base_branch: feature/unify-full-agent-run   # stacked on 044 (needs build_autonomous_runner/run_autonomous)
