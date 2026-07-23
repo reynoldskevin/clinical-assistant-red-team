@@ -144,9 +144,10 @@ _STYLE = """
   /* plain, vertically-centred text (NOT a pill): last-run label when idle, live
      elapsed counter while a run is active */
   .statusmeta { font-size: 12px; font-family: var(--mono); color: var(--muted);
-    font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; }
-  .statusmeta:empty { display: none; }
-  .statusmeta b { color: var(--fg); font-weight: 640; }
+    font-variant-numeric: tabular-nums; display: inline-flex; align-items: center;
+    margin-right: 12px; }
+  .statusmeta:empty { display: none; margin-right: 0; }
+  .statusmeta b { color: var(--fg); font-weight: 640; margin-left: 7px; }
   /* start-run button occupies the slot the auto-refresh pill sits in when idle */
   .startbtn { display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
     font-size: 12px; font-family: var(--mono); font-weight: 600; letter-spacing: .02em;
@@ -227,7 +228,7 @@ _STYLE = """
 
   /* ---- owasp coverage ---- */
   .heat { display: grid; gap: 8px; }
-  .heatrow { display: grid; grid-template-columns: 200px 1fr 34px; align-items: center; gap: 9px; font-size: 12px; }
+  .heatrow { display: grid; grid-template-columns: 300px 1fr 35px; align-items: center; gap: 9px; font-size: 12px; }
   .heatrow .idc { font-family: var(--mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .heatrow .idc b { color: var(--fg); }
   .bar { height: 8px; border-radius: 4px; background: var(--line-soft); overflow: hidden; }
