@@ -16,10 +16,11 @@ def _html():
 
 
 def test_third_row_spans():
-    # Redesign (8/4); authoritative assertion in tests/test_dashboard_owasp_label.py
+    # Redesign (dual-row); authoritative assertion in tests/test_dashboard_owasp_label.py
     html = _html()
-    assert re.search(r'class="w c8">\s*<div class="whead"><span class="wt">OWASP coverage', html)
-    assert re.search(r'class="w c4">\s*<div class="whead"><span class="wt">Findings', html)
+    assert "dualrow" in html
+    assert re.search(r'class="w owasp">\s*<div class="whead"><span class="wt">OWASP coverage', html)
+    assert re.search(r'<span class="wt">Known vulnerabilities', html)
 
 
 def test_refresh_pill_green_pulse_autorefresh_label_and_countdown():
