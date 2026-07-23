@@ -19,11 +19,88 @@ from forge.store import Store  # noqa: F401  (documents the store dependency)
 # --------------------------------------------------------------------------- #
 # state
 # --------------------------------------------------------------------------- #
+def _current_run(events):
+    """``(start_id, end_id_or_None, version)`` of the latest run, or ``None``.
+
+    ``start_id`` is the id of the newest ``run_start``; ``end_id`` the matching
+    ``run_end`` (``None`` while the run is still active).
+    """
+    start_id = None
+    version = None
+    for ev in events:
+        if ev.get("kind") == "run_start":
+            eid = ev.get("id")
+            if eid is not None and (start_id is None or eid > start_id):
+                start_id, version = eid, ev.get("version")
+    if start_id is None:
+        return None
+    end_id = None
+    for ev in events:
+        if ev.get("kind") == "run_end":
+            eid = ev.get("id")
+            if eid is not None and eid > start_id:
+                end_id = eid if end_id is None else max(end_id, eid)
+    return start_id, end_id, version
+
+
+class _RunScopedStore:
+    """Read-only store view limited to a single run's records.
+
+    Events are scoped by the id window ``[start_id, end_id]`` (open-ended while
+    the run is active); findings and cost rows — which carry no event id — are
+    scoped by the ``run_id`` the runner stamps on them.
+    """
+
+    def __init__(self, store, *, start_id, end_id):
+        self._store = store
+        self._start = start_id
+        self._end = end_id
+
+    def _in_window(self, eid):
+        if eid is None or eid < self._start:
+            return False
+        return self._end is None or eid <= self._end
+
+    def get_events(self):
+        return [e for e in self._store.get_events() if self._in_window(e.get("id"))]
+
+    def list_findings(self):
+        return [f for f in self._store.list_findings() if f.get("run_id") == self._start]
+
+    def get_costs(self):
+        return [c for c in self._store.get_costs() if c.get("run_id") == self._start]
+
+
+def _version_sort_key(version):
+    """Numeric version ordering so ``v1.10`` sorts after ``v1.2``."""
+    try:
+        return (0, [int(part) for part in str(version).lstrip("vV").split(".")])
+    except (ValueError, AttributeError):
+        return (1, [])
+
+
 def build_state(observability) -> dict:
-    """A JSON-serializable state dict: the six 016 views + a ``kpis`` summary."""
-    state = observability.snapshot()
-    overall = observability.pass_fail()["overall"]
-    cost = observability.cost()
+    """A JSON-serializable state dict scoped to the CURRENT run.
+
+    Every view (KPIs, pass/fail, coverage, outcomes, cost, feed) reflects only
+    the latest run — a new run starts empty and the numbers reset. The single
+    exception is ``resilience_trend``, which spans runs: one point per versioned
+    run (``v1.0``, ``v1.1``, …), so past scores persist.
+    """
+    store = observability.store
+    cases = observability.cases
+    events = store.get_events()
+
+    run = _current_run(events)
+    if run is not None:
+        start_id, end_id, _version = run
+        scoped = Observability(_RunScopedStore(store, start_id=start_id, end_id=end_id), cases=cases)
+    else:
+        scoped = observability  # no run markers yet — nothing to scope to
+
+    state = scoped.snapshot()
+    overall = scoped.pass_fail()["overall"]
+    cost = scoped.cost()
     state["kpis"] = {
         "resilience": overall["pass_rate"],
         "attempts": overall["attempts"],
@@ -31,35 +108,36 @@ def build_state(observability) -> dict:
         "total_usd": cost["total_usd"],
         "usd_per_attempt": cost["usd_per_attempt"],
     }
-    # aggregate verdict outcomes for the outcome tile (always populated, unlike
-    # the finding lifecycle which is empty until an exploit creates a finding).
     state["outcomes"] = {
         "exploited": overall["exploits"],
         "partial": overall["partial"],
         "defended": overall["defended"],
     }
-    # single pass over events for: seq -> verdict (so the live feed can pill
-    # verdict rows — the 016 activity log carries only seq/agent/kind/category),
-    # and the run-in-progress flag (a run_start with no later run_end). Kept
-    # separate from agent_activity, which mirrors the snapshot verbatim.
+
+    # The one cross-run view: one point per versioned run, oldest → newest.
+    trend = [p for p in observability.resilience_trend() if p.get("version") is not None]
+    trend.sort(key=lambda p: _version_sort_key(p.get("version")))
+    state["resilience_trend"] = trend
+
+    # verdict map for the (scoped) live-feed pills
     verdicts = {}
+    for ev in scoped.store.get_events():
+        if ev.get("kind") == "verdict":
+            verdicts[str(ev.get("id"))] = ev.get("verdict")
+    state["verdicts"] = verdicts
+
+    # run markers + wall-clock anchors come from the FULL event log
     last_start = last_end = -1
     run_started_at = last_run_ended = None
-    for ev in observability.store.get_events():
+    for ev in events:
         kind = ev.get("kind")
-        if kind == "verdict":
-            verdicts[str(ev.get("id"))] = ev.get("verdict")
-        elif kind == "run_start":
+        if kind == "run_start":
             last_start = ev.get("id", last_start)
             run_started_at = ev.get("ts", run_started_at)
         elif kind == "run_end":
             last_end = ev.get("id", last_end)
             last_run_ended = ev.get("ts", last_run_ended)
-    state["verdicts"] = verdicts
     state["run_active"] = last_start > last_end
-    # wall-clock anchors for the header (epoch seconds; None when a run predates
-    # timestamped events). run_started_at drives the live elapsed counter while a
-    # run is active; last_run_ended drives the idle "last run" label.
     state["run_started_at"] = run_started_at
     state["last_run_ended"] = last_run_ended
     return state
@@ -494,7 +572,7 @@ _SCRIPT = r"""
 
   function renderKpis(k) {
     document.getElementById("kpi-resilience").innerHTML =
-      pct(k.resilience) + '<small>%</small>';
+      k.attempts ? pct(k.resilience) + '<small>%</small>' : '—';
     document.getElementById("kpi-attempts").textContent = k.attempts;
     document.getElementById("kpi-exploits").textContent = k.exploits;
     document.getElementById("kpi-cost").innerHTML =

@@ -44,7 +44,7 @@ CASES = [
 def _seed():
     """A controlled run history: 7 verdicts across 2 categories, findings, cost rows."""
     s = Store(":memory:")
-    s.append_event({"kind": "run_start", "target_version": "v1"})
+    rid = s.append_event({"kind": "run_start", "target_version": "v1"})
     s.append_event({"kind": "attack", "attempt_id": 1, "category": "prompt_injection", "target_version": "v1"})
     s.append_event({"kind": "verdict", "attempt_id": 1, "category": "prompt_injection", "verdict": "success", "confidence": 0.9, "target_version": "v1"})
     s.append_event({"kind": "verdict", "attempt_id": 2, "category": "prompt_injection", "verdict": "fail", "confidence": 0.8, "target_version": "v1"})
@@ -54,11 +54,11 @@ def _seed():
     s.append_event({"kind": "verdict", "attempt_id": 6, "category": "prompt_injection", "verdict": "partial", "confidence": 0.5, "target_version": "v2"})
     s.append_event({"kind": "verdict", "attempt_id": 7, "category": "data_exfiltration", "verdict": "fail", "confidence": 0.7, "target_version": "v2"})
     s.append_event({"kind": "run_end"})
-    s.insert_finding({"severity": "high", "attack_category": "prompt_injection", "target_version": "v1", "status": "open"})
-    s.insert_finding({"severity": "medium", "attack_category": "prompt_injection", "target_version": "v1", "status": "in_progress"})
-    s.insert_finding({"severity": "low", "attack_category": "data_exfiltration", "target_version": "v1", "status": "resolved"})
-    s.insert_cost({"category": "prompt_injection", "usd": 0.30, "input_tokens": 100, "output_tokens": 200})
-    s.insert_cost({"category": "data_exfiltration", "usd": 0.20, "input_tokens": 60, "output_tokens": 40})
+    s.insert_finding({"severity": "high", "attack_category": "prompt_injection", "target_version": "v1", "status": "open", "run_id": rid})
+    s.insert_finding({"severity": "medium", "attack_category": "prompt_injection", "target_version": "v1", "status": "in_progress", "run_id": rid})
+    s.insert_finding({"severity": "low", "attack_category": "data_exfiltration", "target_version": "v1", "status": "resolved", "run_id": rid})
+    s.insert_cost({"category": "prompt_injection", "usd": 0.30, "input_tokens": 100, "output_tokens": 200, "run_id": rid})
+    s.insert_cost({"category": "data_exfiltration", "usd": 0.20, "input_tokens": 60, "output_tokens": 40, "run_id": rid})
     return s
 
 
