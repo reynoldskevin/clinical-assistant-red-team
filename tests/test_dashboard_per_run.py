@@ -103,11 +103,11 @@ def test_run_suite_stamps_version_and_run_id():
 
     starts = [e for e in s.get_events() if e["kind"] == "run_start"]
     assert len(starts) == 1
-    assert starts[0]["version"] == "v1.0"
+    assert starts[0]["version"] == "v1.1"   # first NEW run (v1.0 = baseline)
     rid = starts[0]["id"]
 
     verds = [e for e in s.get_events() if e["kind"] == "verdict"]
-    assert verds and all(v["target_version"] == "v1.0" and v["run_id"] == rid for v in verds)
+    assert verds and all(v["target_version"] == "v1.1" and v["run_id"] == rid for v in verds)
     costs = s.get_costs()
     assert costs and all(c["run_id"] == rid for c in costs)
 
@@ -118,4 +118,23 @@ def test_second_run_increments_minor_version():
     runner.run_suite({"prompt_injection": ["seed"]})
     runner.run_suite({"prompt_injection": ["seed"]})
     versions = [e["version"] for e in s.get_events() if e["kind"] == "run_start"]
-    assert versions == ["v1.0", "v1.1"]
+    assert versions == ["v1.1", "v1.2"]
+
+
+def test_legacy_data_is_v1_0_and_new_runs_start_at_v1_1():
+    s = Store(":memory:")
+    # pre-existing (unversioned) run — the "everything currently there" baseline
+    s.append_event({"kind": "run_start", "ts": 10})           # no version
+    for i, v in enumerate(["fail", "fail", "success"]):
+        s.append_event({"kind": "verdict", "attempt_id": i, "category": "pi",
+                        "verdict": v, "confidence": 0.9})      # no target_version
+    s.append_event({"kind": "run_end", "ts": 20})
+    # a new run via the runner must start at v1.1
+    runner = Runner(s, _FakeRT(), _FakeJudge(), pid=1, cost_meter=CostMeter())
+    runner.run_suite({"prompt_injection": ["seed"]})
+
+    versions = [e.get("version") for e in s.get_events() if e["kind"] == "run_start"]
+    assert versions == [None, "v1.1"]        # legacy unversioned, new run v1.1
+    # the trend shows the legacy baseline as v1.0 plus the new v1.1 point
+    trend = build_state(Observability(s))["resilience_trend"]
+    assert [p["version"] for p in trend] == ["v1.0", "v1.1"]

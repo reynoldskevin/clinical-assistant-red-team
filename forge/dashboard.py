@@ -84,8 +84,9 @@ def build_state(observability) -> dict:
 
     Every view (KPIs, pass/fail, coverage, outcomes, cost, feed) reflects only
     the latest run — a new run starts empty and the numbers reset. The single
-    exception is ``resilience_trend``, which spans runs: one point per versioned
-    run (``v1.0``, ``v1.1``, …), so past scores persist.
+    exception is ``resilience_trend``, which spans runs: all pre-versioning data
+    is the ``v1.0`` baseline and each new run adds a point (``v1.1``, ``v1.2``,
+    …), so past scores persist.
     """
     store = observability.store
     cases = observability.cases
@@ -114,8 +115,12 @@ def build_state(observability) -> dict:
         "defended": overall["defended"],
     }
 
-    # The one cross-run view: one point per versioned run, oldest → newest.
-    trend = [p for p in observability.resilience_trend() if p.get("version") is not None]
+    # The one cross-run view: one point per version, oldest → newest. All
+    # pre-versioning data collapses to the v1.0 baseline; new runs add v1.1, …
+    trend = [
+        {**p, "version": "v1.0" if p.get("version") is None else p.get("version")}
+        for p in observability.resilience_trend()
+    ]
     trend.sort(key=lambda p: _version_sort_key(p.get("version")))
     state["resilience_trend"] = trend
 

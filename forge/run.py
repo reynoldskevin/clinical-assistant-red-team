@@ -267,13 +267,14 @@ class Runner:
         return summary
 
     def run_suite(self, seeds_by_category: dict[str, list[str]]) -> RunSummary:
-        # Mock version per run: v1.0 on the first versioned run, minor++ each run.
+        # Mock version per run. All pre-versioning data is the v1.0 baseline, so
+        # the first NEW versioned run is v1.1 and the minor increments each run.
         prior = sum(
             1
             for e in self._store.get_events()
             if e.get("kind") == "run_start" and e.get("version") is not None
         )
-        self._version = f"v1.{prior}"
+        self._version = f"v1.{prior + 1}"
         self._run_id = self._store.append_event(
             {"kind": "run_start", "pid": self._pid, "ts": time.time(), "version": self._version}
         )
