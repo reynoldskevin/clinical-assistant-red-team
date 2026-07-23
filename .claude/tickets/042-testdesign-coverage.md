@@ -1,7 +1,7 @@
 ---
 id: 042
 title: Test-design coverage matrix (boundary / invariant / regression)
-status: tests-authored # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
+status: ready-for-merge # todo | tests-authored | implementing | reviewing | regression | ready-for-merge | blocked
 depends_on: [008, 017]
 branch: ticket/042-testdesign-coverage
 base_branch: main
