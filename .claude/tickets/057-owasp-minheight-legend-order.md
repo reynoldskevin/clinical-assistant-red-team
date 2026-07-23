@@ -1,7 +1,7 @@
 ---
 id: 057
 title: OWASP panel min-height + legend agent grouping
-status: todo
+status: ready-for-merge
 depends_on: []
 branch: ticket/057-owasp-minheight-legend-order
 base_branch: main
