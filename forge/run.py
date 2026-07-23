@@ -164,6 +164,7 @@ class Runner:
         pid: int,
         cost_meter: CostMeter | None = None,
         max_failures: int | None = None,
+        regression_harness=None,
     ) -> None:
         self._store = store
         self._red_team = red_team
@@ -171,6 +172,7 @@ class Runner:
         self._pid = pid
         self._cost_meter = cost_meter
         self._max_failures = max_failures
+        self._regression_harness = regression_harness
         self._failures = 0
         # per-run identity: stamped onto every record a run produces so the
         # dashboard can scope its stats to a single run (and version the trend).
@@ -283,6 +285,22 @@ class Runner:
         try:
             for category, seeds in seeds_by_category.items():
                 categories[category] = self.run_category(category, seeds)
+            # Regression replay runs AFTER the category loop but still inside the
+            # try (before the finally's run_end) so its regression_result events
+            # land within this run's event-id window. A SuiteAborted from the
+            # loop above skips this naturally. Any harness failure is isolated so
+            # it never aborts the run.
+            if self._regression_harness is not None:
+                try:
+                    self._regression_harness.validate()
+                except Exception as exc:  # noqa: BLE001 - isolate a harness failure
+                    self._store.append_event(
+                        {
+                            "kind": "attempt_error",
+                            "category": "regression",
+                            "reason": f"{type(exc).__name__}: {exc}",
+                        }
+                    )
         except SuiteAborted:
             pass
         finally:
@@ -404,7 +422,17 @@ def main(argv=None) -> int:
     red_team = RedTeamAgent(metered, adapter, model=config.models["red_team"])
     judge = JudgeAgent(metered, model=config.models["judge"])
 
-    runner = Runner(store, red_team, judge, pid=args.pid, cost_meter=meter)
+    from forge.regression import RegressionHarness
+
+    harness = RegressionHarness(store, adapter, judge, pid=args.pid)
+    runner = Runner(
+        store,
+        red_team,
+        judge,
+        pid=args.pid,
+        cost_meter=meter,
+        regression_harness=harness,
+    )
 
     cases = load_cases()
     if args.suite:

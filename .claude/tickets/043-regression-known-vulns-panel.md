@@ -1,7 +1,7 @@
 ---
 id: 043
 title: Regression replay wired into the run + "Known vulnerabilities" dashboard panel
-status: tests-authored
+status: ready-for-merge
 depends_on: []
 branch: feature/regression-known-vulns-panel
 base_branch: main
