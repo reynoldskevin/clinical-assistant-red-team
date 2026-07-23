@@ -342,12 +342,13 @@ _STYLE = """
 
   /* ---- live agent feed ---- */
   .feed { font-family: var(--mono); font-size: 12px; max-height: 340px; overflow-y: auto; }
-  .feedrow { display: grid; grid-template-columns: 38px 68px auto 1fr auto; gap: 10px; align-items: center;
+  .feedrow { display: grid; grid-template-columns: 38px 68px 108px 1fr auto; gap: 10px; align-items: center;
     padding: 8px 2px; border-bottom: 1px solid var(--line-soft); }
   .feedrow:last-child { border-bottom: 0; }
   .feedrow .seq { color: var(--faint); font-variant-numeric: tabular-nums; }
-  .feedrow .ts { color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .feedrow .agentchip { white-space: nowrap; }
+  .feedrow .ts { color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap; padding: 0 6px; }
+  /* fixed-width pip so every row's label starts at the same x */
+  .feedrow .agentchip { white-space: nowrap; width: 100%; text-align: center; box-sizing: border-box; }
   .feedrow .cat { color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .feedrow.fresh { background: linear-gradient(90deg, var(--good-bg), transparent); }
 
