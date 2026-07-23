@@ -1,7 +1,7 @@
 ---
 id: 056
 title: Feed — hide adapter calls, colour documentation green
-status: todo
+status: ready-for-merge
 depends_on: []
 branch: ticket/056-feed-hide-adapter-doc-green
 base_branch: main
