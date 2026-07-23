@@ -32,16 +32,19 @@ def test_findings_tag_is_method_call_style():
     assert '<span class="wtag">outcomes</span>' not in html  # bare form gone
 
 
-def test_widget_numbering_sequential_and_unique():
+def test_widget_box_numbering_removed():
+    # Redesign: the 01–06 box numbering is gone and titles are the accent color.
     html = _html()
     for n in ("01", "02", "03", "04", "05", "06"):
-        assert html.count('<span class="id">' + n + "</span>") == 1, n
+        assert ('<span class="id">' + n + "</span>") not in html, n
+    assert '<span class="id">' not in html  # no numbering markers at all
+    # widget titles are rendered in the accent color
+    assert re.search(r"\.w \.wt \{[^}]*color: var\(--accent\)", html)
 
 
 def test_third_row_spans():
-    # Third-row spans, tied to their numbered headings. The authoritative
-    # assertion lives in tests/test_dashboard_owasp_label.py (ticket 033: 5/3/4).
+    # Redesign: row 3 is 8/4 (OWASP coverage / Findings); Cost moved up to row 2.
+    # Authoritative assertion lives in tests/test_dashboard_owasp_label.py.
     html = _html()
-    assert re.search(r'class="w c5">\s*<div class="whead"><span class="wt"><span class="id">03</span> OWASP coverage', html)
-    assert re.search(r'class="w c3">\s*<div class="whead"><span class="wt"><span class="id">04</span> Cost', html)
-    assert re.search(r'class="w c4">\s*<div class="whead"><span class="wt"><span class="id">05</span> Findings', html)
+    assert re.search(r'class="w c8">\s*<div class="whead"><span class="wt">OWASP coverage', html)
+    assert re.search(r'class="w c4">\s*<div class="whead"><span class="wt">Findings', html)

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, Callable
@@ -250,7 +251,9 @@ class Runner:
         return summary
 
     def run_suite(self, seeds_by_category: dict[str, list[str]]) -> RunSummary:
-        self._store.append_event({"kind": "run_start", "pid": self._pid})
+        self._store.append_event(
+            {"kind": "run_start", "pid": self._pid, "ts": time.time()}
+        )
         self._failures = 0
         categories: dict[str, CategorySummary] = {}
         try:
@@ -259,7 +262,7 @@ class Runner:
         except SuiteAborted:
             pass
         finally:
-            self._store.append_event({"kind": "run_end"})
+            self._store.append_event({"kind": "run_end", "ts": time.time()})
         total = self._cost_meter.total_usd if self._cost_meter is not None else 0.0
         return RunSummary(categories=categories, total_cost_usd=total)
 

@@ -14,14 +14,22 @@ def _html():
     return render_html(build_state(Observability(s)))
 
 
-def test_third_row_spans_are_5_3_4():
+def test_row2_spans_are_5_4_3():
+    # Redesign row 2: Pass/fail (5) · Resilience trend (4) · Cost (3).
     html = _html()
-    assert re.search(r'class="w c5">\s*<div class="whead"><span class="wt"><span class="id">03</span> OWASP coverage', html)
-    assert re.search(r'class="w c3">\s*<div class="whead"><span class="wt"><span class="id">04</span> Cost', html)
-    assert re.search(r'class="w c4">\s*<div class="whead"><span class="wt"><span class="id">05</span> Findings', html)
+    assert re.search(r'class="w c5">\s*<div class="whead"><span class="wt">Pass / fail by category', html)
+    assert re.search(r'class="w c4">\s*<div class="whead"><span class="wt">Resilience trend', html)
+    assert re.search(r'class="w c3">\s*<div class="whead"><span class="wt">Cost', html)
 
 
-def test_owasp_label_column_is_200px():
+def test_row3_spans_are_8_4():
+    # Redesign row 3: OWASP coverage (8) · Findings (4).
     html = _html()
-    assert "grid-template-columns: 200px 1fr 34px" in html
-    assert "118px 1fr 34px" not in html
+    assert re.search(r'class="w c8">\s*<div class="whead"><span class="wt">OWASP coverage', html)
+    assert re.search(r'class="w c4">\s*<div class="whead"><span class="wt">Findings', html)
+
+
+def test_owasp_label_column_is_400px():
+    html = _html()
+    assert "grid-template-columns: 400px 1fr 35px" in html
+    assert "300px 1fr 35px" not in html
