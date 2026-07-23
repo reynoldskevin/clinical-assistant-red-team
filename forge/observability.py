@@ -25,6 +25,9 @@ _AGENT_BY_KIND = {
     "verdict": "judge",
     "target_call": "adapter",
     "audit": "operator",
+    "regression_result": "regression",
+    "vuln_report": "documentation",
+    "vuln_report_link": "documentation",
 }
 
 
@@ -170,6 +173,7 @@ class Observability:
                     "agent": _AGENT_BY_KIND.get(kind, kind),
                     "kind": kind,
                     "category": ev.get("category"),
+                    "ts": ev.get("ts"),
                 }
             )
         return activity

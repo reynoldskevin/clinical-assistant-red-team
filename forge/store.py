@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import time
 from dataclasses import dataclass, field
 
 
@@ -233,6 +234,7 @@ class Store:
     # ------------------------------------------------------------------ #
     def append_event(self, data: dict) -> int:
         native, extra = self._split(data, {"kind"})
+        extra.setdefault("ts", time.time())
         cur = self.conn.execute(
             "INSERT INTO events (kind, data) VALUES (?, ?)",
             (native.get("kind"), json.dumps(extra)),

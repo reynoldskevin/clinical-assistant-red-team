@@ -1,7 +1,7 @@
 ---
 id: 047
 title: Dashboard UI refinements — start-button spinner, scrollable/labeled agent feed with timestamps, known-vulns box layout
-status: tests-authored
+status: ready-for-merge
 depends_on: [046]
 branch: feature/dashboard-ui-refinements
 base_branch: main

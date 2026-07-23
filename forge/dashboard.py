@@ -213,6 +213,12 @@ _STYLE = """
     padding: 6px 13px; border-radius: 999px; box-shadow: 0 4px 12px -5px var(--accent-solid); }
   .startbtn:hover { filter: brightness(1.07); }
   .startbtn:disabled { opacity: .55; cursor: progress; }
+  .startbtn.busy { opacity: .6; cursor: progress; filter: none; }
+  .startbtn.busy .spinner { width: 12px; height: 12px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; display: inline-block;
+    animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .startbtn.busy .spinner { animation: none; } }
   .startbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .startbtn[hidden], .live[hidden] { display: none; }
   .live { display: inline-flex; align-items: center; gap: 8px;
@@ -300,28 +306,18 @@ _STYLE = """
   .rightcol > .w { flex: 1 1 0; min-height: 0; }
   @media (max-width: 900px) { .dualrow { grid-template-columns: 1fr; } }
 
-  /* ---- known vulnerabilities ---- */
-  .knownvulns { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
-  .kv-sum { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
-  .kv-sum b { color: var(--crit); font-weight: 640; }
-  .kv-row { display: flex; align-items: center; gap: 8px; padding: 7px 0;
-    border-bottom: 1px solid var(--line-soft); }
-  .kv-row:last-child { border-bottom: 0; }
-  .kv-cat { color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .kv-row .pill { margin-left: auto; }
-  .kv-re { font-family: var(--mono); font-size: 10px; color: var(--warn); text-transform: uppercase; }
-  .kv-empty { color: var(--muted); font-family: var(--mono); font-size: 12px; }
-
   /* ---- finding lifecycle ---- */
   .pipe { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .stage { border: 1px solid var(--line); border-radius: 10px; padding: 12px 13px; background: var(--panel-2);
     display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
   .stage .nm { font-size: 11px; font-weight: 400; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
   .stage.open .nm { color: var(--crit); } .stage.prog .nm { color: var(--warn); } .stage.done .nm { color: var(--good); }
+  .stage.known .nm { color: var(--accent); }
   .stage .cnt { font-size: 25px; font-weight: 650; font-family: var(--mono); line-height: 1; }
   .stage.open .cnt { color: var(--crit); }
   .stage.prog .cnt { color: var(--warn); }
   .stage.done .cnt { color: var(--good); }
+  .stage.known .cnt { color: var(--accent); }
 
   /* ---- chips / pills ---- */
   .pill { display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono);
@@ -341,13 +337,17 @@ _STYLE = """
   .agentchip.jdg { color: var(--accent); border-color: rgba(41,104,230,.4); }
   .agentchip.adp { color: var(--good); border-color: rgba(53,210,155,.3); }
   .agentchip.opr { color: var(--muted); }
+  .agentchip.reg { color: var(--muted); }
+  .agentchip.doc { color: var(--muted); }
 
   /* ---- live agent feed ---- */
-  .feed { font-family: var(--mono); font-size: 12px; }
-  .feedrow { display: grid; grid-template-columns: 38px 86px 1fr auto; gap: 10px; align-items: center;
+  .feed { font-family: var(--mono); font-size: 12px; max-height: 340px; overflow-y: auto; }
+  .feedrow { display: grid; grid-template-columns: 38px 68px auto 1fr auto; gap: 10px; align-items: center;
     padding: 8px 2px; border-bottom: 1px solid var(--line-soft); }
   .feedrow:last-child { border-bottom: 0; }
   .feedrow .seq { color: var(--faint); font-variant-numeric: tabular-nums; }
+  .feedrow .ts { color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .feedrow .agentchip { white-space: nowrap; }
   .feedrow .cat { color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .feedrow.fresh { background: linear-gradient(90deg, var(--good-bg), transparent); }
 
@@ -500,7 +500,7 @@ _BODY = """
         </div>
         <div class="w">
           <div class="whead"><span class="wt">Known vulnerabilities</span><span class="wtag">regression</span></div>
-          <div class="knownvulns" id="known-vulns"></div>
+          <div class="pipe" id="known-vulns"></div>
         </div>
       </div>
     </div>
@@ -512,6 +512,7 @@ _BODY = """
         <span style="display:flex; gap:7px; flex-wrap:wrap">
           <span class="agentchip orc">orchestrator</span><span class="agentchip red">red_team</span>
           <span class="agentchip jdg">judge</span><span class="agentchip adp">adapter</span>
+          <span class="agentchip reg">regression</span><span class="agentchip doc">documentation</span>
         </span>
       </div>
       <div class="feed" id="agent-feed"></div>
@@ -544,6 +545,21 @@ _SCRIPT = r"""
   var lastSeq = null;
   // header run-state anchors (epoch seconds; null when unknown)
   var headerActive = false, runStartedAt = null, lastRunEnded = null, clientRunStart = null;
+  // start-run button: pending from click until the run goes live
+  var pendingStart = false;
+
+  function setBtnBusy(on) {
+    var btn = document.getElementById("start-run");
+    if (!btn) return;
+    btn.disabled = !!on;
+    if (on) {
+      btn.classList.add("busy");
+      btn.innerHTML = '<span class="spinner"></span>Starting…';
+    } else {
+      btn.classList.remove("busy");
+      btn.innerHTML = "▶ Start run";
+    }
+  }
 
   function esc(s) {
     return String(s == null ? "" : s)
@@ -569,7 +585,8 @@ _SCRIPT = r"""
   }
 
   var AGENT_CLASS = {
-    orchestrator: "orc", red_team: "red", judge: "jdg", adapter: "adp", operator: "opr"
+    orchestrator: "orc", red_team: "red", judge: "jdg", adapter: "adp", operator: "opr",
+    regression: "reg", documentation: "doc"
   };
   var VERDICT_PILL = {
     success: ["exp", "exploited"], fail: ["def", "defended"], partial: ["par", "partial"]
@@ -686,34 +703,25 @@ _SCRIPT = r"""
 
   function renderKnownVulns(kv) {
     kv = kv || {};
-    var cases = kv.cases || [];
     var el = document.getElementById("known-vulns");
     if (!el) return;
-    if (!cases.length) {
-      el.innerHTML = '<div class="kv-empty">No known vulnerabilities replayed this run.</div>';
-      return;
-    }
-    var html =
-      '<div class="kv-sum"><b>' + (kv.vulnerable || 0) + '</b> of ' +
-      (kv.total || 0) + ' still vulnerable</div>';
-    html += cases.map(function (c) {
-      var re = c.reappeared ? '<span class="kv-re">reappeared</span>' : '';
-      var pill = c.status === "vulnerable"
-        ? '<span class="pill exp">vulnerable</span>'
-        : '<span class="pill def">fixed</span>';
-      return '<div class="kv-row"><span class="kv-cat">' + esc(c.category) + '</span>' +
-        re + pill + '</div>';
-    }).join("");
-    el.innerHTML = html;
+    el.innerHTML =
+      '<div class="stage known"><div class="nm">Known</div><div class="cnt">' + (kv.total || 0) + '</div></div>' +
+      '<div class="stage open"><div class="nm">Unfixed</div><div class="cnt">' + (kv.vulnerable || 0) + '</div></div>' +
+      '<div class="stage done"><div class="nm">Fixed</div><div class="cnt">' + (kv.fixed || 0) + '</div></div>';
+  }
+
+  function fmtFeedTs(ts) {
+    if (ts == null) return "";
+    try { return new Date(ts * 1000).toLocaleTimeString(); } catch (e) { return ""; }
   }
 
   function renderFeed(activity, verdicts) {
     activity = (activity || []).slice();
     activity.sort(function (a, b) { return (b.seq || 0) - (a.seq || 0); });
-    var top = activity.slice(0, 8);
-    var newest = top.length ? top[0].seq : null;
+    var newest = activity.length ? activity[0].seq : null;
     var fresh = (newest !== null && newest !== lastSeq);
-    document.getElementById("agent-feed").innerHTML = top.map(function (ev, i) {
+    document.getElementById("agent-feed").innerHTML = activity.map(function (ev, i) {
       var cls = AGENT_CLASS[ev.agent] || "opr";
       var label = esc(ev.kind) + (ev.category ? " · " + esc(ev.category) : "");
       var pill = "";
@@ -724,6 +732,7 @@ _SCRIPT = r"""
       }
       return '<div class="feedrow' + (i === 0 && fresh ? ' fresh' : '') + '">' +
         '<span class="seq">#' + esc(ev.seq) + '</span>' +
+        '<span class="ts">' + esc(fmtFeedTs(ev.ts)) + '</span>' +
         '<span class="agentchip ' + cls + '">' + esc(ev.agent) + '</span>' +
         '<span class="cat">' + label + '</span>' + (pill || '<span></span>') + '</div>';
     }).join("");
@@ -744,6 +753,13 @@ _SCRIPT = r"""
     if (runEl) runEl.hidden = !headerActive;
     if (btn) btn.hidden = headerActive;
     if (pill) pill.hidden = !headerActive;
+    if (headerActive) {
+      // the run is live — the click has taken effect
+      pendingStart = false;
+    } else if (!pendingStart) {
+      // idle and nothing pending — restore the normal button
+      setBtnBusy(false);
+    }
     paintMeta();
   }
 
@@ -771,9 +787,18 @@ _SCRIPT = r"""
       var token = localStorage.getItem("forge_run_token") || window.prompt("Run token");
       if (!token) return;
       localStorage.setItem("forge_run_token", token);
-      btn.disabled = true;
+      pendingStart = true;
+      setBtnBusy(true);
+      // failsafe: stop the spinner if the run never shows up as active
+      setTimeout(function () {
+        if (pendingStart) { pendingStart = false; setBtnBusy(false); }
+      }, 30000);
       fetch("/api/run", { method: "POST", headers: { "X-Run-Token": token } })
         .then(function (r) {
+          if (r.status === 401 || r.status === 409 || r.status === 503) {
+            pendingStart = false;
+            setBtnBusy(false);
+          }
           if (r.status === 401) {
             localStorage.removeItem("forge_run_token");
             window.alert("Unauthorized — check the run token.");
@@ -784,8 +809,7 @@ _SCRIPT = r"""
           }
           return poll();
         })
-        .catch(function () {})
-        .then(function () { btn.disabled = false; });
+        .catch(function () {});
     });
   }
 
