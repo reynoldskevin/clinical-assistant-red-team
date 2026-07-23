@@ -1,7 +1,7 @@
 ---
 id: 044
 title: Unify the deployed run on one full-agent loop — Orchestrator + Documentation fire in `forge run`; retire AutonomousLoop
-status: tests-authored
+status: ready-for-merge
 depends_on: [043]
 branch: feature/unify-full-agent-run
 base_branch: main

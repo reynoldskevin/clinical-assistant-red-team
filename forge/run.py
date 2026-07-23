@@ -165,6 +165,8 @@ class Runner:
         cost_meter: CostMeter | None = None,
         max_failures: int | None = None,
         regression_harness=None,
+        orchestrator=None,
+        documentation=None,
     ) -> None:
         self._store = store
         self._red_team = red_team
@@ -173,98 +175,114 @@ class Runner:
         self._cost_meter = cost_meter
         self._max_failures = max_failures
         self._regression_harness = regression_harness
+        self._orchestrator = orchestrator
+        self._documentation = documentation
         self._failures = 0
         # per-run identity: stamped onto every record a run produces so the
         # dashboard can scope its stats to a single run (and version the trend).
         self._run_id: int | None = None
         self._version: str | None = None
 
+    def _execute_directive(self, directive: AttackDirective) -> CategorySummary:
+        """Run ONE directive (Red Team -> Judge over its attempts), persisting
+        everything and stamping the per-run identity. Isolates a failed
+        generation and honours the failure-budget circuit breaker exactly as the
+        category/suite paths do."""
+        category = directive.category
+        summary = CategorySummary(category=category)
+        try:
+            if self._cost_meter is not None:
+                snap_usd = self._cost_meter.total_usd
+                snap_in = self._cost_meter.total_in
+                snap_out = self._cost_meter.total_out
+
+            attempts = self._red_team.run(directive, self._pid)
+
+            for attempt in attempts:
+                attempt_id = self._store.insert_attempt(attempt.model_dump())
+                self._store.append_event(
+                    {
+                        "kind": "attack",
+                        "attempt_id": attempt_id,
+                        "category": category,
+                        "run_id": self._run_id,
+                        "target_version": self._version,
+                    }
+                )
+                verdict = self._judge.evaluate(attempt)
+                self._store.append_event(
+                    {
+                        "kind": "verdict",
+                        "attempt_id": attempt_id,
+                        "category": category,
+                        "verdict": verdict.verdict,
+                        "confidence": verdict.confidence,
+                        "run_id": self._run_id,
+                        "target_version": self._version,
+                    }
+                )
+                summary.record(verdict.verdict)
+
+                if verdict.verdict == "success":
+                    self._store.insert_finding(
+                        {
+                            "severity": _severity_from_confidence(verdict.confidence),
+                            "attack_category": category,
+                            "status": "open",
+                            "attempt_id": attempt_id,
+                            "rationale": verdict.rationale,
+                            "owasp_web": verdict.owasp_web,
+                            "owasp_llm": verdict.owasp_llm,
+                            "run_id": self._run_id,
+                            "target_version": self._version,
+                        }
+                    )
+
+            if self._cost_meter is not None:
+                self._store.insert_cost(
+                    {
+                        "category": category,
+                        "input_tokens": self._cost_meter.total_in - snap_in,
+                        "output_tokens": self._cost_meter.total_out - snap_out,
+                        "usd": self._cost_meter.total_usd - snap_usd,
+                        "run_id": self._run_id,
+                        "version": self._version,
+                    }
+                )
+        except SuiteAborted:
+            raise
+        except Exception as exc:  # noqa: BLE001 - isolate a failed generation
+            self._failures += 1
+            self._store.append_event(
+                {
+                    "kind": "attempt_error",
+                    "category": category,
+                    "reason": f"{type(exc).__name__}: {exc}",
+                }
+            )
+            if self._max_failures is not None and self._failures >= self._max_failures:
+                self._store.append_event(
+                    {
+                        "kind": "circuit_breaker",
+                        "reason": "max_failures_exceeded",
+                        "failures": self._failures,
+                    }
+                )
+                raise SuiteAborted(self._failures) from exc
+
+        return summary
+
     def run_category(self, category: str, seeds: list[str] | None = None) -> CategorySummary:
         summary = CategorySummary(category=category)
         seed_list = list(seeds) if seeds else [None]
 
         for seed in seed_list:
-            try:
-                if self._cost_meter is not None:
-                    snap_usd = self._cost_meter.total_usd
-                    snap_in = self._cost_meter.total_in
-                    snap_out = self._cost_meter.total_out
-
-                directive = AttackDirective(category=category, seed=seed, max_attempts=1)
-                attempts = self._red_team.run(directive, self._pid)
-
-                for attempt in attempts:
-                    attempt_id = self._store.insert_attempt(attempt.model_dump())
-                    self._store.append_event(
-                        {
-                            "kind": "attack",
-                            "attempt_id": attempt_id,
-                            "category": category,
-                            "run_id": self._run_id,
-                            "target_version": self._version,
-                        }
-                    )
-                    verdict = self._judge.evaluate(attempt)
-                    self._store.append_event(
-                        {
-                            "kind": "verdict",
-                            "attempt_id": attempt_id,
-                            "category": category,
-                            "verdict": verdict.verdict,
-                            "confidence": verdict.confidence,
-                            "run_id": self._run_id,
-                            "target_version": self._version,
-                        }
-                    )
-                    summary.record(verdict.verdict)
-
-                    if verdict.verdict == "success":
-                        self._store.insert_finding(
-                            {
-                                "severity": _severity_from_confidence(verdict.confidence),
-                                "attack_category": category,
-                                "status": "open",
-                                "attempt_id": attempt_id,
-                                "rationale": verdict.rationale,
-                                "owasp_web": verdict.owasp_web,
-                                "owasp_llm": verdict.owasp_llm,
-                                "run_id": self._run_id,
-                                "target_version": self._version,
-                            }
-                        )
-
-                if self._cost_meter is not None:
-                    self._store.insert_cost(
-                        {
-                            "category": category,
-                            "input_tokens": self._cost_meter.total_in - snap_in,
-                            "output_tokens": self._cost_meter.total_out - snap_out,
-                            "usd": self._cost_meter.total_usd - snap_usd,
-                            "run_id": self._run_id,
-                            "version": self._version,
-                        }
-                    )
-            except SuiteAborted:
-                raise
-            except Exception as exc:  # noqa: BLE001 - isolate a failed generation
-                self._failures += 1
-                self._store.append_event(
-                    {
-                        "kind": "attempt_error",
-                        "category": category,
-                        "reason": f"{type(exc).__name__}: {exc}",
-                    }
-                )
-                if self._max_failures is not None and self._failures >= self._max_failures:
-                    self._store.append_event(
-                        {
-                            "kind": "circuit_breaker",
-                            "reason": "max_failures_exceeded",
-                            "failures": self._failures,
-                        }
-                    )
-                    raise SuiteAborted(self._failures) from exc
-                continue
+            directive = AttackDirective(category=category, seed=seed, max_attempts=1)
+            part = self._execute_directive(directive)
+            summary.attempts += part.attempts
+            summary.exploits += part.exploits
+            summary.defended += part.defended
+            summary.partial += part.partial
 
         return summary
 
@@ -310,6 +328,85 @@ class Runner:
         total = self._cost_meter.total_usd if self._cost_meter is not None else 0.0
         return RunSummary(categories=categories, total_cost_usd=total)
 
+    def run_autonomous(self) -> RunSummary:
+        """The deployed one-loop run: the Orchestrator selects directives until
+        it halts, then regression replay and the Documentation pass run — all
+        within the same versioned run window as ``run_suite``."""
+        prior = sum(
+            1
+            for e in self._store.get_events()
+            if e.get("kind") == "run_start" and e.get("version") is not None
+        )
+        self._version = f"v1.{prior + 1}"
+        self._run_id = self._store.append_event(
+            {"kind": "run_start", "pid": self._pid, "ts": time.time(), "version": self._version}
+        )
+        self._failures = 0
+        categories: dict[str, CategorySummary] = {}
+        try:
+            # Orchestrator drives the attack phase until it returns None. The
+            # safety cap guards against any non-halting strategist.
+            for _ in range(500):
+                directive = self._orchestrator.next_directive()
+                if directive is None:
+                    break
+                part = self._execute_directive(directive)
+                existing = categories.get(part.category)
+                if existing is None:
+                    categories[part.category] = part
+                else:
+                    existing.attempts += part.attempts
+                    existing.exploits += part.exploits
+                    existing.defended += part.defended
+                    existing.partial += part.partial
+            else:
+                self._store.append_event(
+                    {"kind": "circuit_breaker", "reason": "max_directives_exceeded"}
+                )
+
+            # Regression replay runs BEFORE the documentation pass (ordering is
+            # asserted) and still inside the try so its events land within this
+            # run's id window. Any harness failure is isolated.
+            if self._regression_harness is not None:
+                try:
+                    self._regression_harness.validate()
+                except Exception as exc:  # noqa: BLE001 - isolate a harness failure
+                    self._store.append_event(
+                        {
+                            "kind": "attempt_error",
+                            "category": "regression",
+                            "reason": f"{type(exc).__name__}: {exc}",
+                        }
+                    )
+
+            # Documentation pass: draft reports + linked regression cases for
+            # confirmed exploits. Isolated so a failure never aborts the run.
+            if self._documentation is not None and self._regression_harness is not None:
+                from forge.vuln_reports import generate_reports
+
+                try:
+                    generate_reports(
+                        self._store,
+                        documentation=self._documentation,
+                        harness=self._regression_harness,
+                    )
+                except Exception as exc:  # noqa: BLE001 - isolate a documentation failure
+                    self._store.append_event(
+                        {
+                            "kind": "attempt_error",
+                            "category": "documentation",
+                            "reason": f"{type(exc).__name__}: {exc}",
+                        }
+                    )
+        except SuiteAborted:
+            pass
+        finally:
+            self._store.append_event(
+                {"kind": "run_end", "ts": time.time(), "version": self._version, "run_id": self._run_id}
+            )
+        total = self._cost_meter.total_usd if self._cost_meter is not None else 0.0
+        return RunSummary(categories=categories, total_cost_usd=total)
+
 
 # --------------------------------------------------------------------------- #
 # Reporting
@@ -343,6 +440,47 @@ def seeds_for_category(cases, category: str) -> list[str]:
         if isinstance(seed, str) and seed:
             seeds.append(seed)
     return seeds
+
+
+# --------------------------------------------------------------------------- #
+# Autonomous runner factory (ticket 044)
+# --------------------------------------------------------------------------- #
+def build_autonomous_runner(
+    store,
+    *,
+    red_team,
+    judge,
+    adapter,
+    cases,
+    cost_meter,
+    pid: int,
+) -> "Runner":
+    """Wire the full four-agent deployed loop: Orchestrator + Red Team + Judge +
+    Regression + Documentation, all sharing one store."""
+    import os
+
+    from forge.documentation import DocumentationAgent
+    from forge.observability import Observability
+    from forge.orchestrator import Orchestrator
+    from forge.regression import RegressionHarness
+
+    obs = Observability(store, cases=cases)
+    categories = sorted({c.category for c in cases})
+    orchestrator = Orchestrator(obs, categories=categories)
+    documentation = DocumentationAgent(
+        store, reports_dir=os.environ.get("FORGE_REPORTS_DIR", "reports")
+    )
+    harness = RegressionHarness(store, adapter, judge, pid=pid)
+    return Runner(
+        store,
+        red_team,
+        judge,
+        pid=pid,
+        cost_meter=cost_meter,
+        regression_harness=harness,
+        orchestrator=orchestrator,
+        documentation=documentation,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -422,27 +560,20 @@ def main(argv=None) -> int:
     red_team = RedTeamAgent(metered, adapter, model=config.models["red_team"])
     judge = JudgeAgent(metered, model=config.models["judge"])
 
-    from forge.regression import RegressionHarness
+    cases = load_cases()
+    if not args.suite:
+        cases = [c for c in cases if c.category == args.category]
 
-    harness = RegressionHarness(store, adapter, judge, pid=args.pid)
-    runner = Runner(
+    runner = build_autonomous_runner(
         store,
-        red_team,
-        judge,
-        pid=args.pid,
+        red_team=red_team,
+        judge=judge,
+        adapter=adapter,
+        cases=cases,
         cost_meter=meter,
-        regression_harness=harness,
+        pid=args.pid,
     )
 
-    cases = load_cases()
-    if args.suite:
-        categories = sorted({c.category for c in cases})
-        seeds_by_category = {
-            cat: seeds_for_category(cases, cat) for cat in categories
-        }
-    else:
-        seeds_by_category = {args.category: seeds_for_category(cases, args.category)}
-
-    summary = runner.run_suite(seeds_by_category)
+    summary = runner.run_autonomous()
     print(format_summary(summary))
     return 0 if summary.passed else 1
