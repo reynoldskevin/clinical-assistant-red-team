@@ -21,6 +21,7 @@ from forge.config import Config
 from forge.evals import load_cases
 from forge.judge import JudgeAgent
 from forge.llm import ClaudeClient, LLMResponse
+from forge.observability import Observability
 from forge.red_team import RedTeamAgent
 from forge.schemas import AttackDirective
 from forge.store import Store
@@ -342,6 +343,17 @@ class Runner:
             {"kind": "run_start", "pid": self._pid, "ts": time.time(), "version": self._version}
         )
         self._failures = 0
+        # Scope the Orchestrator to THIS run so its coverage/budget/findings
+        # reflect only the current run (an active run -> end_id=None -> open
+        # window), not cumulative history. Without this a run after history
+        # exists sees every category covered and halts immediately (empty-run
+        # bug).
+        if self._orchestrator is not None:
+            from forge.scoping import RunScopedStore
+
+            self._orchestrator.observability = Observability(
+                RunScopedStore(self._store, start_id=self._run_id, end_id=None)
+            )
         categories: dict[str, CategorySummary] = {}
         try:
             # Orchestrator drives the attack phase until it returns None. The

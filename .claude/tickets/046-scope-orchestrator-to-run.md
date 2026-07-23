@@ -1,7 +1,7 @@
 ---
 id: 046
 title: Scope the Orchestrator to the current run so each run covers all six ≥10 (fix empty-run bug)
-status: tests-authored
+status: ready-for-merge
 depends_on: [044, 045]
 branch: feature/scope-orchestrator-to-run
 base_branch: main
