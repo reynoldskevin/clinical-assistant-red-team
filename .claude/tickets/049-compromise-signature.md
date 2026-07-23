@@ -1,7 +1,7 @@
 ---
 id: 049
 title: Compromise signature on regression cases
-status: todo
+status: ready-for-merge
 depends_on: []
 branch: ticket/049-compromise-signature
 base_branch: main
