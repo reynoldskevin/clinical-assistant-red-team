@@ -32,9 +32,12 @@ class Orchestrator:
         directive_max_cost_usd: float = 1.0,
         min_spend_before_halt: float = 0.5,
         min_signal_per_usd: float = 1.0,
+        seeds_by_category=None,
     ):
         self.observability = observability
         self.categories = list(categories)
+        self._seeds = dict(seeds_by_category or {})
+        self._seed_cursor: dict[str, int] = {}
         self.target_id = target_id
         self.run_budget_usd = run_budget_usd
         self.coverage_target = coverage_target
@@ -88,11 +91,23 @@ class Orchestrator:
     # ------------------------------------------------------------------ #
     # decision
     # ------------------------------------------------------------------ #
+    def _next_seed(self, category: str) -> str | None:
+        seeds = self._seeds.get(category)
+        if not seeds:
+            return None
+        i = self._seed_cursor.get(category, 0)
+        self._seed_cursor[category] = i + 1
+        return seeds[i % len(seeds)]
+
+    def _floor_for(self, category: str) -> int:
+        return max(self.coverage_target, len(self._seeds.get(category, [])))
+
     def _directive(self, category: str) -> AttackDirective:
         return AttackDirective(
             category=category,
             max_attempts=self.directive_max_attempts,
             max_cost_usd=self.directive_max_cost_usd,
+            seed=self._next_seed(category),
         )
 
     def next_directive(self) -> AttackDirective | None:
@@ -104,7 +119,7 @@ class Orchestrator:
         # ``coverage_target`` ATTEMPTS before an open finding can monopolize the
         # loop. Probe the least-covered below-floor category (alpha tie-break).
         below_floor = [
-            c for c in self.categories if self._category_stats(c)[0] < self.coverage_target
+            c for c in self.categories if self._category_stats(c)[0] < self._floor_for(c)
         ]
         if below_floor:
             chosen = min(below_floor, key=lambda c: (self._category_stats(c)[0], c))

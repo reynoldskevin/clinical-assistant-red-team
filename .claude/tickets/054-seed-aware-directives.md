@@ -1,7 +1,7 @@
 ---
 id: 054
 title: Seed-aware autonomous directives
-status: todo
+status: ready-for-merge
 depends_on: []
 branch: ticket/054-seed-aware-directives
 base_branch: main

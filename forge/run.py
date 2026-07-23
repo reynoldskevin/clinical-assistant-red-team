@@ -446,9 +446,10 @@ def seeds_for_category(cases, category: str) -> list[str]:
     for case in cases:
         if case.category != category:
             continue
-        seed = case.prompt
-        if not seed and case.input_sequence:
-            seed = "\n".join(s for s in case.input_sequence if s)
+        seed = getattr(case, "prompt", None)
+        input_sequence = getattr(case, "input_sequence", None)
+        if not seed and input_sequence:
+            seed = "\n".join(s for s in input_sequence if s)
         if isinstance(seed, str) and seed:
             seeds.append(seed)
     return seeds
@@ -478,7 +479,11 @@ def build_autonomous_runner(
 
     obs = Observability(store, cases=cases)
     categories = sorted({c.category for c in cases})
-    orchestrator = Orchestrator(obs, categories=categories, coverage_target=10)
+    seeds_by_category = {cat: seeds_for_category(cases, cat) for cat in categories}
+    orchestrator = Orchestrator(
+        obs, categories=categories, coverage_target=10,
+        seeds_by_category=seeds_by_category,
+    )
     documentation = DocumentationAgent(
         store, reports_dir=os.environ.get("FORGE_REPORTS_DIR", "reports")
     )
