@@ -338,7 +338,7 @@ _STYLE = """
   .agentchip.adp { color: var(--good); border-color: rgba(53,210,155,.3); }
   .agentchip.opr { color: var(--muted); }
   .agentchip.reg { color: var(--muted); }
-  .agentchip.doc { color: var(--muted); }
+  .agentchip.doc { color: var(--good); border-color: rgba(53,210,155,.3); }
 
   /* ---- live agent feed ---- */
   .feed { font-family: var(--mono); font-size: 12px; max-height: 340px; overflow-y: auto; }
@@ -514,7 +514,7 @@ _BODY = """
         <span class="wt">Live agent activity</span>
         <span style="display:flex; gap:7px; flex-wrap:wrap">
           <span class="agentchip orc">orchestrator</span><span class="agentchip red">red_team</span>
-          <span class="agentchip jdg">judge</span><span class="agentchip adp">adapter</span>
+          <span class="agentchip jdg">judge</span>
           <span class="agentchip reg">regression</span><span class="agentchip doc">documentation</span>
         </span>
       </div>
@@ -728,6 +728,7 @@ _SCRIPT = r"""
   function renderFeed(activity, verdicts) {
     activity = (activity || []).slice();
     activity.sort(function (a, b) { return (b.seq || 0) - (a.seq || 0); });
+    activity = activity.filter(function (ev) { return ev.agent !== "adapter"; });
     var newest = activity.length ? activity[0].seq : null;
     var fresh = (newest !== null && newest !== lastSeq);
     document.getElementById("agent-feed").innerHTML = activity.map(function (ev, i) {
