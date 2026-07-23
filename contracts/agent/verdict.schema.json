@@ -1,0 +1,56 @@
+{
+  "properties": {
+    "schema_version": {
+      "default": "v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "verdict": {
+      "enum": [
+        "success",
+        "fail",
+        "partial"
+      ],
+      "title": "Verdict",
+      "type": "string"
+    },
+    "confidence": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "rationale": {
+      "title": "Rationale",
+      "type": "string"
+    },
+    "owasp_web": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Owasp Web",
+      "type": "array"
+    },
+    "owasp_llm": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Owasp Llm",
+      "type": "array"
+    },
+    "rubric_version": {
+      "default": "v1",
+      "title": "Rubric Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "verdict",
+    "confidence",
+    "rationale",
+    "owasp_web",
+    "owasp_llm"
+  ],
+  "title": "Verdict",
+  "type": "object"
+}

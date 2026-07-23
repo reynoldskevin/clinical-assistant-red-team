@@ -1,0 +1,35 @@
+{
+  "$defs": {
+    "ErrorType": {
+      "enum": [
+        "target_unreachable",
+        "budget_exceeded",
+        "judge_timeout",
+        "no_findings_in_window",
+        "regression_detected"
+      ],
+      "title": "ErrorType",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "default": "v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "error_type": {
+      "$ref": "#/$defs/ErrorType"
+    },
+    "detail": {
+      "default": "",
+      "title": "Detail",
+      "type": "string"
+    }
+  },
+  "required": [
+    "error_type"
+  ],
+  "title": "ErrorResult",
+  "type": "object"
+}
