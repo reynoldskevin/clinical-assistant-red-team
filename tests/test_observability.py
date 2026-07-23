@@ -40,14 +40,18 @@ def _seed():
     s.append_event({"kind": "run_start", "target_version": "v1"})
     s.append_event({"kind": "attack", "attempt_id": 1, "category": "prompt_injection", "target_version": "v1"})
     # v1: prompt_injection -> 1 success (exploited) + 1 fail (defended); data_exfil -> 2 fail
-    s.append_event({"kind": "verdict", "attempt_id": 1, "category": "prompt_injection", "verdict": "success", "confidence": 0.9, "target_version": "v1"})
-    s.append_event({"kind": "verdict", "attempt_id": 2, "category": "prompt_injection", "verdict": "fail", "confidence": 0.8, "target_version": "v1"})
-    s.append_event({"kind": "verdict", "attempt_id": 3, "category": "data_exfiltration", "verdict": "fail", "confidence": 0.7, "target_version": "v1"})
-    s.append_event({"kind": "verdict", "attempt_id": 4, "category": "data_exfiltration", "verdict": "fail", "confidence": 0.7, "target_version": "v1"})
+    # OWASP coverage now derives from the Judge's per-verdict tags (ticket 053).
+    _PI = {"owasp_web": [], "owasp_llm": ["LLM01:Prompt Injection"]}
+    _DE = {"owasp_web": ["A01:2021-Broken Access Control"],
+           "owasp_llm": ["LLM06:Sensitive Information Disclosure"]}
+    s.append_event({"kind": "verdict", "attempt_id": 1, "category": "prompt_injection", "verdict": "success", "confidence": 0.9, "target_version": "v1", **_PI})
+    s.append_event({"kind": "verdict", "attempt_id": 2, "category": "prompt_injection", "verdict": "fail", "confidence": 0.8, "target_version": "v1", **_PI})
+    s.append_event({"kind": "verdict", "attempt_id": 3, "category": "data_exfiltration", "verdict": "fail", "confidence": 0.7, "target_version": "v1", **_DE})
+    s.append_event({"kind": "verdict", "attempt_id": 4, "category": "data_exfiltration", "verdict": "fail", "confidence": 0.7, "target_version": "v1", **_DE})
     # v2: all defended (resilience improved)
-    s.append_event({"kind": "verdict", "attempt_id": 5, "category": "prompt_injection", "verdict": "fail", "confidence": 0.8, "target_version": "v2"})
-    s.append_event({"kind": "verdict", "attempt_id": 6, "category": "prompt_injection", "verdict": "fail", "confidence": 0.8, "target_version": "v2"})
-    s.append_event({"kind": "verdict", "attempt_id": 7, "category": "data_exfiltration", "verdict": "fail", "confidence": 0.7, "target_version": "v2"})
+    s.append_event({"kind": "verdict", "attempt_id": 5, "category": "prompt_injection", "verdict": "fail", "confidence": 0.8, "target_version": "v2", **_PI})
+    s.append_event({"kind": "verdict", "attempt_id": 6, "category": "prompt_injection", "verdict": "fail", "confidence": 0.8, "target_version": "v2", **_PI})
+    s.append_event({"kind": "verdict", "attempt_id": 7, "category": "data_exfiltration", "verdict": "fail", "confidence": 0.7, "target_version": "v2", **_DE})
     s.append_event({"kind": "run_end"})
     # findings across the lifecycle
     s.insert_finding({"severity": "high", "attack_category": "prompt_injection", "target_version": "v1", "status": "open"})
@@ -72,16 +76,18 @@ def test_imports():
 def test_coverage_per_category_and_per_owasp():
     cov = _obs().coverage()
     assert cov["by_category"] == {"prompt_injection": 4, "data_exfiltration": 3}
-    # per-OWASP coverage: attempts in every category mapped to that OWASP id
+    # per-OWASP coverage: distinct verdicts tagged with each id by the Judge
     assert cov["by_owasp"]["LLM01:Prompt Injection"] == 4
     assert cov["by_owasp"]["A01:2021-Broken Access Control"] == 3
     assert cov["by_owasp"]["LLM06:Sensitive Information Disclosure"] == 3
 
 
-def test_coverage_owasp_requires_cases():
-    cov = Observability(_seed()).coverage()  # no cases -> cannot map to OWASP
-    assert cov["by_category"] == {"prompt_injection": 4, "data_exfiltration": 3}
-    assert cov["by_owasp"] == {}
+def test_coverage_owasp_independent_of_cases():
+    # by_owasp derives from verdict tags now, so it is identical with/without cases
+    without = Observability(_seed()).coverage()
+    assert without["by_category"] == {"prompt_injection": 4, "data_exfiltration": 3}
+    assert without["by_owasp"] == _obs().coverage()["by_owasp"]
+    assert without["by_owasp"]["LLM01:Prompt Injection"] == 4
 
 
 # 2. pass / fail ------------------------------------------------------------ #

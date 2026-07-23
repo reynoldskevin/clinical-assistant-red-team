@@ -64,15 +64,10 @@ class Observability:
             by_category[cat] = by_category.get(cat, 0) + 1
 
         by_owasp: dict[str, int] = {}
-        if self.cases is not None:
-            for case in self.cases:
-                cat = getattr(case, "category", None)
-                owasp_ids = list(getattr(case, "owasp_web", []) or []) + list(
-                    getattr(case, "owasp_llm", []) or []
-                )
-                attempts = by_category.get(cat, 0)
-                for owasp_id in owasp_ids:
-                    by_owasp[owasp_id] = by_owasp.get(owasp_id, 0) + attempts
+        for ev in self._verdicts():
+            ids = set(ev.get("owasp_web") or []) | set(ev.get("owasp_llm") or [])
+            for owasp_id in ids:
+                by_owasp[owasp_id] = by_owasp.get(owasp_id, 0) + 1
 
         return {"by_category": by_category, "by_owasp": by_owasp}
 

@@ -218,6 +218,8 @@ class Runner:
                         "category": category,
                         "verdict": verdict.verdict,
                         "confidence": verdict.confidence,
+                        "owasp_web": verdict.owasp_web,
+                        "owasp_llm": verdict.owasp_llm,
                         "run_id": self._run_id,
                         "target_version": self._version,
                     }
