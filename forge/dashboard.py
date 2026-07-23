@@ -44,16 +44,24 @@ def build_state(observability) -> dict:
     # separate from agent_activity, which mirrors the snapshot verbatim.
     verdicts = {}
     last_start = last_end = -1
+    run_started_at = last_run_ended = None
     for ev in observability.store.get_events():
         kind = ev.get("kind")
         if kind == "verdict":
             verdicts[str(ev.get("id"))] = ev.get("verdict")
         elif kind == "run_start":
             last_start = ev.get("id", last_start)
+            run_started_at = ev.get("ts", run_started_at)
         elif kind == "run_end":
             last_end = ev.get("id", last_end)
+            last_run_ended = ev.get("ts", last_run_ended)
     state["verdicts"] = verdicts
     state["run_active"] = last_start > last_end
+    # wall-clock anchors for the header (epoch seconds; None when a run predates
+    # timestamped events). run_started_at drives the live elapsed counter while a
+    # run is active; last_run_ended drives the idle "last run" label.
+    state["run_started_at"] = run_started_at
+    state["last_run_ended"] = last_run_ended
     return state
 
 
@@ -133,6 +141,21 @@ _STYLE = """
   .masthead h1 { font-size: 18px; letter-spacing: -.01em; margin: 0; font-weight: 650; }
   .masthead .sub { color: var(--muted); font-size: 13px; }
   .statusbar { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; }
+  /* plain, vertically-centred text (NOT a pill): last-run label when idle, live
+     elapsed counter while a run is active */
+  .statusmeta { font-size: 12px; font-family: var(--mono); color: var(--muted);
+    font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; }
+  .statusmeta:empty { display: none; }
+  .statusmeta b { color: var(--fg); font-weight: 640; }
+  /* start-run button occupies the slot the auto-refresh pill sits in when idle */
+  .startbtn { display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+    font-size: 12px; font-family: var(--mono); font-weight: 600; letter-spacing: .02em;
+    color: #fff; background: var(--accent-solid); border: 1px solid var(--accent-solid);
+    padding: 6px 13px; border-radius: 999px; box-shadow: 0 4px 12px -5px var(--accent-solid); }
+  .startbtn:hover { filter: brightness(1.07); }
+  .startbtn:disabled { opacity: .55; cursor: progress; }
+  .startbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .startbtn[hidden], .live[hidden] { display: none; }
   .live { display: inline-flex; align-items: center; gap: 8px;
     font-size: 12px; color: var(--muted); font-family: var(--mono);
     padding: 5px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); }
@@ -156,9 +179,8 @@ _STYLE = """
     min-width: 0; position: relative; }
   .w > .whead { display: flex; align-items: center; justify-content: space-between;
     margin-bottom: 13px; }
-  .w .wt { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
-    font-family: var(--mono); display: flex; align-items: center; gap: 7px; }
-  .w .wt .id { color: var(--accent); }
+  .w .wt { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent);
+    font-family: var(--mono); display: flex; align-items: center; gap: 7px; font-weight: 600; }
   .w .wtag { font-size: 10.5px; font-family: var(--mono); color: var(--faint);
     border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; }
 
@@ -265,7 +287,9 @@ _BODY = """
     <h1>Agent Forge · Adversarial</h1>
     <span class="sub">live resilience console</span>
     <span class="statusbar">
+      <span class="statusmeta" id="statusmeta"></span>
       <span class="runstate" id="runstate" hidden><span class="pulse"></span>run in progress</span>
+      <button type="button" class="startbtn" id="start-run" hidden>▶ Start run</button>
       <span class="live" id="refresh-pill"><span class="pulse"></span>auto-refresh · <span class="num" id="refresh-count">10</span>s</span>
     </span>
   </div>
@@ -273,7 +297,7 @@ _BODY = """
 
     <!-- KPI widgets -->
     <div class="w c3 kpi good">
-      <div class="whead"><span class="wt"><span class="id">◆</span> Resilience</span></div>
+      <div class="whead"><span class="wt">Resilience</span></div>
       <div class="val" id="kpi-resilience">—</div>
       <div class="delta" id="kpi-resilience-sub">defended / attempts</div>
       <div class="spark">
@@ -298,16 +322,16 @@ _BODY = """
       <div class="delta" id="kpi-cost-sub">per attempt</div>
     </div>
 
-    <!-- pass/fail by category -->
-    <div class="w c6">
-      <div class="whead"><span class="wt"><span class="id">01</span> Pass / fail by category</span><span class="wtag">pass_fail()</span></div>
+    <!-- row 2 · pass/fail (5) · resilience trend (4) · cost (3) -->
+    <div class="w c5">
+      <div class="whead"><span class="wt">Pass / fail by category</span><span class="wtag">pass_fail()</span></div>
       <div class="rows" id="passfail-rows"></div>
       <div class="legend" id="passfail-legend"></div>
     </div>
 
     <!-- resilience trend -->
-    <div class="w c6">
-      <div class="whead"><span class="wt"><span class="id">02</span> Resilience trend</span><span class="wtag">resilience_trend()</span></div>
+    <div class="w c4">
+      <div class="whead"><span class="wt">Resilience trend</span><span class="wtag">resilience_trend()</span></div>
       <div class="trend-num"><span class="num" id="trend-num">—</span><span class="cap" id="trend-cap"></span></div>
       <svg viewBox="0 0 320 96" width="100%" preserveAspectRatio="none" role="img" aria-label="Resilience trend over target versions">
         <defs>
@@ -325,28 +349,28 @@ _BODY = """
       <div class="trend-sub" id="trend-sub"></div>
     </div>
 
-    <!-- owasp coverage -->
-    <div class="w c5">
-      <div class="whead"><span class="wt"><span class="id">03</span> OWASP coverage</span><span class="wtag">coverage()</span></div>
-      <div class="heat" id="owasp-heat"></div>
+    <!-- cost · completes row 2 (5/4/3) -->
+    <div class="w c3">
+      <div class="whead"><span class="wt">Cost</span><span class="wtag">cost()</span></div>
+      <div class="costgrid" id="cost-grid"></div>
     </div>
 
-    <!-- cost -->
-    <div class="w c3">
-      <div class="whead"><span class="wt"><span class="id">04</span> Cost</span><span class="wtag">cost()</span></div>
-      <div class="costgrid" id="cost-grid"></div>
+    <!-- row 3 · owasp coverage (8) · findings (4) -->
+    <div class="w c8">
+      <div class="whead"><span class="wt">OWASP coverage</span><span class="wtag">coverage()</span></div>
+      <div class="heat" id="owasp-heat"></div>
     </div>
 
     <!-- finding lifecycle -->
     <div class="w c4">
-      <div class="whead"><span class="wt"><span class="id">05</span> Findings</span><span class="wtag">outcomes()</span></div>
+      <div class="whead"><span class="wt">Findings</span><span class="wtag">outcomes()</span></div>
       <div class="pipe" id="findings-pipe"></div>
     </div>
 
     <!-- live agent feed (wide) -->
     <div class="w c12">
       <div class="whead">
-        <span class="wt"><span class="id">06</span> Live agent activity</span>
+        <span class="wt">Live agent activity</span>
         <span style="display:flex; gap:7px; flex-wrap:wrap">
           <span class="agentchip orc">orchestrator</span><span class="agentchip red">red_team</span>
           <span class="agentchip jdg">judge</span><span class="agentchip adp">adapter</span>
@@ -363,10 +387,22 @@ _BODY = """
 _SCRIPT = r"""
 (function () {
   var lastSeq = null;
+  // header run-state anchors (epoch seconds; null when unknown)
+  var headerActive = false, runStartedAt = null, lastRunEnded = null, clientRunStart = null;
 
   function esc(s) {
     return String(s == null ? "" : s)
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function now() { return Date.now() / 1000; }
+  function fmtClock(sec) {
+    sec = Math.max(0, Math.floor(sec));
+    var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    function p(n) { return (n < 10 ? "0" : "") + n; }
+    return (h > 0 ? h + ":" + p(m) : String(m)) + ":" + p(s);
+  }
+  function fmtDate(ts) {
+    try { return new Date(ts * 1000).toLocaleString(); } catch (e) { return String(ts); }
   }
   function pct(x) { return Math.round((Number(x) || 0) * 100); }
   function usd(x) { return "$" + (Number(x) || 0).toFixed(2); }
@@ -516,9 +552,63 @@ _SCRIPT = r"""
     if (newest !== null) lastSeq = newest;
   }
 
-  function renderRunState(active) {
-    var el = document.getElementById("runstate");
-    if (el) el.hidden = !active;
+  // Header: when idle show the last-run label (left, plain text) + Start-run
+  // button; when active show the live elapsed counter (left) + run-in-progress
+  // and auto-refresh pills. Timers are plain vertically-centred text, not pills.
+  function renderHeader(state) {
+    headerActive = !!state.run_active;
+    runStartedAt = (typeof state.run_started_at === "number") ? state.run_started_at : null;
+    lastRunEnded = (typeof state.last_run_ended === "number") ? state.last_run_ended : null;
+    if (!headerActive) clientRunStart = null;
+    var runEl = document.getElementById("runstate");
+    var btn = document.getElementById("start-run");
+    var pill = document.getElementById("refresh-pill");
+    if (runEl) runEl.hidden = !headerActive;
+    if (btn) btn.hidden = headerActive;
+    if (pill) pill.hidden = !headerActive;
+    paintMeta();
+  }
+
+  function paintMeta() {
+    var meta = document.getElementById("statusmeta");
+    if (!meta) return;
+    if (headerActive) {
+      var anchor = runStartedAt;
+      if (anchor == null) {                 // historical run w/o server timestamp
+        if (clientRunStart == null) clientRunStart = now();
+        anchor = clientRunStart;
+      }
+      meta.innerHTML = "elapsed <b>" + fmtClock(now() - anchor) + "</b>";
+    } else if (lastRunEnded != null) {
+      meta.innerHTML = "last run <b>" + esc(fmtDate(lastRunEnded)) + "</b>";
+    } else {
+      meta.innerHTML = "";                  // no runs yet — :empty hides it
+    }
+  }
+
+  function wireStartButton() {
+    var btn = document.getElementById("start-run");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      var token = localStorage.getItem("forge_run_token") || window.prompt("Run token");
+      if (!token) return;
+      localStorage.setItem("forge_run_token", token);
+      btn.disabled = true;
+      fetch("/api/run", { method: "POST", headers: { "X-Run-Token": token } })
+        .then(function (r) {
+          if (r.status === 401) {
+            localStorage.removeItem("forge_run_token");
+            window.alert("Unauthorized — check the run token.");
+          } else if (r.status === 409) {
+            window.alert("A run is already in progress.");
+          } else if (r.status === 503) {
+            window.alert("Run trigger is not configured on the server.");
+          }
+          return poll();
+        })
+        .catch(function () {})
+        .then(function () { btn.disabled = false; });
+    });
   }
 
   function render(state) {
@@ -531,7 +621,7 @@ _SCRIPT = r"""
     renderCost(state.cost || {});
     renderFindings(state.outcomes || {});
     renderFeed(state.agent_activity || [], state.verdicts || {});
-    renderRunState(!!state.run_active);
+    renderHeader(state);
   }
 
   // countdown: update ONLY the number so the green pulse dot + "auto-refresh"
@@ -551,6 +641,7 @@ _SCRIPT = r"""
       .then(function () { polling = false; });
   }
   function tick() {
+    paintMeta();                 // keep the elapsed counter live every second
     if (polling) return;
     left -= 1;
     if (left <= 0) { poll(); left = REFRESH_S; }
@@ -561,6 +652,7 @@ _SCRIPT = r"""
   try {
     initial = JSON.parse(document.getElementById("initial-state").textContent);
   } catch (e) { initial = null; }
+  wireStartButton();
   render(initial);
   paintCount();
   setInterval(tick, 1000);
@@ -605,24 +697,82 @@ def handle_path(path, state_provider):
     return (404, "text/plain; charset=utf-8", "not found")
 
 
+def handle_run_trigger(token, *, configured_token, run_active, launcher):
+    """Pure handler for ``POST /api/run`` — a token-gated suite-run trigger.
+
+    Returns ``(status, content_type, body)``:
+      * 503 when no ``FORGE_RUN_TOKEN`` is configured (feature off),
+      * 401 on a missing/incorrect token,
+      * 409 when a run is already in progress,
+      * 202 after invoking ``launcher()`` to start the suite in the background.
+    """
+    ctype = "application/json"
+    if not configured_token:
+        return (503, ctype, json.dumps({"error": "run trigger not configured"}))
+    if not token or token != configured_token:
+        return (401, ctype, json.dumps({"error": "unauthorized"}))
+    if run_active:
+        return (409, ctype, json.dumps({"error": "run already in progress"}))
+    launcher()
+    return (202, ctype, json.dumps({"status": "started"}))
+
+
+def _default_run_launcher():
+    """Spawn ``python -m forge run --suite`` detached from the dashboard process."""
+    import subprocess
+    import sys
+
+    subprocess.Popen(
+        [sys.executable, "-m", "forge", "run", "--suite"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
 # --------------------------------------------------------------------------- #
 # server
 # --------------------------------------------------------------------------- #
-def make_server(store, *, host="0.0.0.0", port=8000, cases=None):
-    """A bound ThreadingHTTPServer serving the live dashboard over ``store``."""
+def make_server(store, *, host="0.0.0.0", port=8000, cases=None,
+                run_launcher=None, run_token=None):
+    """A bound ThreadingHTTPServer serving the live dashboard over ``store``.
+
+    ``POST /api/run`` triggers a suite run, gated by ``run_token`` (defaults to
+    the ``FORGE_RUN_TOKEN`` env var; the feature is off when unset). ``launcher``
+    (defaults to spawning ``forge run --suite``) is invoked on an authorized,
+    idle request.
+    """
+
+    launcher = run_launcher or _default_run_launcher
+    token_cfg = run_token if run_token is not None else os.environ.get("FORGE_RUN_TOKEN", "")
 
     def state_provider():
         return build_state(Observability(store, cases=cases))
 
+    def _respond(handler, status, ctype, body):
+        data = body.encode("utf-8")
+        handler.send_response(status)
+        handler.send_header("Content-Type", ctype)
+        handler.send_header("Content-Length", str(len(data)))
+        handler.end_headers()
+        handler.wfile.write(data)
+
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):  # noqa: N802
-            status, ctype, body = handle_path(self.path, state_provider)
-            data = body.encode("utf-8")
-            self.send_response(status)
-            self.send_header("Content-Type", ctype)
-            self.send_header("Content-Length", str(len(data)))
-            self.end_headers()
-            self.wfile.write(data)
+            _respond(self, *handle_path(self.path, state_provider))
+
+        def do_POST(self):  # noqa: N802
+            clean = self.path.split("?", 1)[0]
+            if clean == "/api/run":
+                token = self.headers.get("X-Run-Token", "")
+                try:
+                    active = bool(state_provider().get("run_active"))
+                except Exception:  # noqa: BLE001 - never 500 the trigger on a read hiccup
+                    active = False
+                _respond(self, *handle_run_trigger(
+                    token, configured_token=token_cfg, run_active=active, launcher=launcher,
+                ))
+            else:
+                _respond(self, 404, "text/plain; charset=utf-8", "not found")
 
         def log_message(self, *args, **kwargs):  # silence default logging
             pass
