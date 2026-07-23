@@ -1,7 +1,7 @@
 ---
 id: 055
 title: Eval cases for thin OWASP coverage areas
-status: todo
+status: ready-for-merge
 depends_on: []
 branch: ticket/055-thin-owasp-cases
 base_branch: main
