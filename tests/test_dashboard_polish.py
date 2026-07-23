@@ -43,8 +43,10 @@ def test_widget_box_numbering_removed():
 
 
 def test_third_row_spans():
-    # Redesign: row 3 is 8/4 (OWASP coverage / Findings); Cost moved up to row 2.
+    # Redesign (ticket 043): row 3 is a dual-row — OWASP coverage beside a right column
+    # of "Current run findings" over "Known vulnerabilities". Cost stays on row 2.
     # Authoritative assertion lives in tests/test_dashboard_owasp_label.py.
     html = _html()
-    assert re.search(r'class="w c8">\s*<div class="whead"><span class="wt">OWASP coverage', html)
-    assert re.search(r'class="w c4">\s*<div class="whead"><span class="wt">Findings', html)
+    assert "dualrow" in html
+    assert re.search(r'class="w owasp">\s*<div class="whead"><span class="wt">OWASP coverage', html)
+    assert re.search(r'<span class="wt">Current run findings', html)

@@ -145,6 +145,32 @@ def build_state(observability) -> dict:
     state["run_active"] = last_start > last_end
     state["run_started_at"] = run_started_at
     state["last_run_ended"] = last_run_ended
+
+    # known vulnerabilities — the CURRENT run's regression replay outcomes, read
+    # from the SAME scoped store as the other per-run views. Keep the LAST result
+    # per case_id; vulnerable cases sort first, then by category.
+    by_case: dict = {}
+    for ev in scoped.store.get_events():
+        if ev.get("kind") != "regression_result":
+            continue
+        case_id = ev.get("case_id")
+        by_case[case_id] = {
+            "case_id": case_id,
+            "category": ev.get("category"),
+            "status": ev.get("status"),
+            "verdict": ev.get("verdict"),
+            "reappeared": bool(ev.get("reappeared")),
+        }
+    cases_kv = sorted(
+        by_case.values(),
+        key=lambda c: (c["status"] != "vulnerable", str(c["category"])),
+    )
+    state["known_vulnerabilities"] = {
+        "total": len(cases_kv),
+        "vulnerable": sum(1 for c in cases_kv if c["status"] == "vulnerable"),
+        "fixed": sum(1 for c in cases_kv if c["status"] == "fixed"),
+        "cases": cases_kv,
+    }
     return state
 
 
@@ -317,6 +343,25 @@ _STYLE = """
   .bar { height: 8px; border-radius: 4px; background: var(--line-soft); overflow: hidden; }
   .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent-dim), var(--accent)); }
   .heatrow .cnt { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; color: var(--muted); }
+
+  /* ---- dual row · OWASP (full height) beside a stacked right column ---- */
+  .dualrow { grid-column: span 12; display: grid; grid-template-columns: 2fr 1fr; gap: 14px; align-items: stretch; }
+  .dualrow > .w { margin: 0; }
+  .rightcol { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .rightcol > .w { flex: 1 1 0; min-height: 0; }
+  @media (max-width: 900px) { .dualrow { grid-template-columns: 1fr; } }
+
+  /* ---- known vulnerabilities ---- */
+  .knownvulns { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+  .kv-sum { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  .kv-sum b { color: var(--crit); font-weight: 640; }
+  .kv-row { display: flex; align-items: center; gap: 8px; padding: 7px 0;
+    border-bottom: 1px solid var(--line-soft); }
+  .kv-row:last-child { border-bottom: 0; }
+  .kv-cat { color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kv-row .pill { margin-left: auto; }
+  .kv-re { font-family: var(--mono); font-size: 10px; color: var(--warn); text-transform: uppercase; }
+  .kv-empty { color: var(--muted); font-family: var(--mono); font-size: 12px; }
 
   /* ---- finding lifecycle ---- */
   .pipe { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
@@ -493,16 +538,22 @@ _BODY = """
       <div class="costgrid" id="cost-grid"></div>
     </div>
 
-    <!-- row 3 · owasp coverage (8) · findings (4) -->
-    <div class="w c8">
-      <div class="whead"><span class="wt">OWASP coverage</span><span class="wtag">coverage()</span></div>
-      <div class="heat" id="owasp-heat"></div>
-    </div>
-
-    <!-- finding lifecycle -->
-    <div class="w c4">
-      <div class="whead"><span class="wt">Findings</span><span class="wtag">outcomes()</span></div>
-      <div class="pipe" id="findings-pipe"></div>
+    <!-- row 3 · OWASP (full height) beside stacked findings + known vulns -->
+    <div class="dualrow">
+      <div class="w owasp">
+        <div class="whead"><span class="wt">OWASP coverage</span><span class="wtag">coverage()</span></div>
+        <div class="heat" id="owasp-heat"></div>
+      </div>
+      <div class="rightcol">
+        <div class="w">
+          <div class="whead"><span class="wt">Current run findings</span><span class="wtag">outcomes()</span></div>
+          <div class="pipe" id="findings-pipe"></div>
+        </div>
+        <div class="w">
+          <div class="whead"><span class="wt">Known vulnerabilities</span><span class="wtag">regression</span></div>
+          <div class="knownvulns" id="known-vulns"></div>
+        </div>
+      </div>
     </div>
 
     <!-- live agent feed (wide) -->
@@ -682,6 +733,29 @@ _SCRIPT = r"""
       '<div class="stage open"><div class="nm">Exploited</div><div class="cnt">' + (o.exploited || 0) + '</div></div>' +
       '<div class="stage prog"><div class="nm">Partial</div><div class="cnt">' + (o.partial || 0) + '</div></div>' +
       '<div class="stage done"><div class="nm">Defended</div><div class="cnt">' + (o.defended || 0) + '</div></div>';
+  }
+
+  function renderKnownVulns(kv) {
+    kv = kv || {};
+    var cases = kv.cases || [];
+    var el = document.getElementById("known-vulns");
+    if (!el) return;
+    if (!cases.length) {
+      el.innerHTML = '<div class="kv-empty">No known vulnerabilities replayed this run.</div>';
+      return;
+    }
+    var html =
+      '<div class="kv-sum"><b>' + (kv.vulnerable || 0) + '</b> of ' +
+      (kv.total || 0) + ' still vulnerable</div>';
+    html += cases.map(function (c) {
+      var re = c.reappeared ? '<span class="kv-re">reappeared</span>' : '';
+      var pill = c.status === "vulnerable"
+        ? '<span class="pill exp">vulnerable</span>'
+        : '<span class="pill def">fixed</span>';
+      return '<div class="kv-row"><span class="kv-cat">' + esc(c.category) + '</span>' +
+        re + pill + '</div>';
+    }).join("");
+    el.innerHTML = html;
   }
 
   function renderFeed(activity, verdicts) {
@@ -871,6 +945,7 @@ _SCRIPT = r"""
     renderOwasp(state.coverage || {});
     renderCost(state.cost || {});
     renderFindings(state.outcomes || {});
+    renderKnownVulns(state.known_vulnerabilities || {});
     renderFeed(state.agent_activity || [], state.verdicts || {});
     renderHeader(state);
   }

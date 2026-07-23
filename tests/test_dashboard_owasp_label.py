@@ -22,11 +22,15 @@ def test_row2_spans_are_5_4_3():
     assert re.search(r'class="w c3">\s*<div class="whead"><span class="wt">Cost', html)
 
 
-def test_row3_spans_are_8_4():
-    # Redesign row 3: OWASP coverage (8) · Findings (4).
+def test_row3_dual_row_layout():
+    # Redesign (ticket 043): row 3 is a dual-row — OWASP coverage (left, full height)
+    # beside a right column stacking "Current run findings" over "Known vulnerabilities".
     html = _html()
-    assert re.search(r'class="w c8">\s*<div class="whead"><span class="wt">OWASP coverage', html)
-    assert re.search(r'class="w c4">\s*<div class="whead"><span class="wt">Findings', html)
+    assert "dualrow" in html
+    assert 'class="rightcol"' in html
+    assert re.search(r'class="w owasp">\s*<div class="whead"><span class="wt">OWASP coverage', html)
+    assert re.search(r'<span class="wt">Current run findings', html)
+    assert re.search(r'<span class="wt">Known vulnerabilities', html)
 
 
 def test_owasp_label_column_is_400px():
