@@ -228,7 +228,7 @@ _STYLE = """
 
   /* ---- owasp coverage ---- */
   .heat { display: grid; gap: 8px; }
-  .heatrow { display: grid; grid-template-columns: 300px 1fr 35px; align-items: center; gap: 9px; font-size: 12px; }
+  .heatrow { display: grid; grid-template-columns: 400px 1fr 35px; align-items: center; gap: 9px; font-size: 12px; }
   .heatrow .idc { font-family: var(--mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .heatrow .idc b { color: var(--fg); }
   .bar { height: 8px; border-radius: 4px; background: var(--line-soft); overflow: hidden; }

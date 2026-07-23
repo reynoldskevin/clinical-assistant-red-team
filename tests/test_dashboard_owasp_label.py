@@ -29,7 +29,7 @@ def test_row3_spans_are_8_4():
     assert re.search(r'class="w c4">\s*<div class="whead"><span class="wt">Findings', html)
 
 
-def test_owasp_label_column_is_300px():
+def test_owasp_label_column_is_400px():
     html = _html()
-    assert "grid-template-columns: 300px 1fr 35px" in html
-    assert "200px 1fr 34px" not in html
+    assert "grid-template-columns: 400px 1fr 35px" in html
+    assert "300px 1fr 35px" not in html
