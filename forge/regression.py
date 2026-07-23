@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 
+from forge.phi import extract_markers
 from forge.schemas import AttackAttempt, Verdict
 
 
@@ -56,6 +57,38 @@ class RegressionHarness:
         return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
     # ------------------------------------------------------------------ #
+    # compromise signature (ticket 049)
+    # ------------------------------------------------------------------ #
+    @staticmethod
+    def _target_answers(transcript) -> list[str]:
+        return [
+            str(t.get("answer", ""))
+            for t in (transcript or [])
+            if t.get("role") == "target"
+        ]
+
+    def _compromise_signature(self, transcript, verdict: Verdict) -> dict:
+        material = self._target_answers(transcript) + [verdict.rationale]
+        markers = extract_markers("\n".join(material))
+        return {
+            "markers": markers,
+            "rationale": verdict.rationale,
+            "owasp_web": list(verdict.owasp_web),
+            "owasp_llm": list(verdict.owasp_llm),
+        }
+
+    def _derive_signature(self, transcript) -> dict:
+        answers = self._target_answers(transcript)
+        if not answers:
+            return {"markers": [], "rationale": "", "owasp_web": [], "owasp_llm": []}
+        return {
+            "markers": extract_markers("\n".join(answers)),
+            "rationale": "",
+            "owasp_web": [],
+            "owasp_llm": [],
+        }
+
+    # ------------------------------------------------------------------ #
     # case creation / listing
     # ------------------------------------------------------------------ #
     def create_case(self, verdict: Verdict, attempt: AttackAttempt) -> dict:
@@ -63,12 +96,14 @@ class RegressionHarness:
             raise ValueError(
                 "only confirmed exploits (verdict='success') become regression cases"
             )
+        signature = self._compromise_signature(attempt.transcript, verdict)
         case = {
             "case_id": self._case_key(attempt),
             "category": attempt.category,
             "prompt": attempt.prompt,
             "target_id": attempt.target_id,
             "transcript": attempt.transcript,
+            "compromise_signature": signature,
         }
         self._store.append_event(
             {
@@ -89,12 +124,17 @@ class RegressionHarness:
             cid = ev.get("case_id")
             if cid in cases:
                 continue
+            transcript = ev.get("transcript", [])
+            signature = ev.get("compromise_signature")
+            if signature is None:
+                signature = self._derive_signature(transcript)
             cases[cid] = {
                 "case_id": cid,
                 "category": ev.get("category"),
                 "prompt": ev.get("prompt"),
                 "target_id": ev.get("target_id"),
-                "transcript": ev.get("transcript", []),
+                "transcript": transcript,
+                "compromise_signature": signature,
             }
         return list(cases.values())
 
