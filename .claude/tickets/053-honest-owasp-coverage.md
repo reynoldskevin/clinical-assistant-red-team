@@ -1,7 +1,7 @@
 ---
 id: 053
 title: Honest OWASP coverage from Judge-observed tags
-status: todo
+status: ready-for-merge
 depends_on: []
 branch: ticket/053-honest-owasp-coverage
 base_branch: main
