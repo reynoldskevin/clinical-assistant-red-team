@@ -268,13 +268,16 @@ def test_cli_parse_args_serve_and_run_coexist():
 # --------------------------------------------------------------------------- #
 # end-to-end contract: a real server answering real requests
 # --------------------------------------------------------------------------- #
-def test_make_server_answers_real_requests():
+def test_make_server_answers_real_requests(tmp_path):
     from forge.dashboard import make_server, build_state
 
     store = _seed()
-    expected = build_state(Observability(store, cases=CASES))
+    # ticket 070: build_state now counts reports from reports_dir; pin BOTH sides to the same
+    # (empty) dir so the router==handler equivalence check is hermetic (independent of repo reports/).
+    rd = str(tmp_path)
+    expected = build_state(Observability(store, cases=CASES), reports_dir=rd)
 
-    server = make_server(store, host="127.0.0.1", port=0, cases=CASES)
+    server = make_server(store, host="127.0.0.1", port=0, cases=CASES, reports_dir=rd)
     host, port = server.server_address[0], server.server_address[1]
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
