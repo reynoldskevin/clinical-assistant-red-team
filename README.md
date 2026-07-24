@@ -92,6 +92,14 @@ Result: charts went from ~33 s to ~1.5 s (measured on the live demo).
 - Point the adapter at a live target by setting `TARGET_BASE_URL`; leave it unset
   to run against the injected transport and skip the live smoke test.
 
+### Submission self-check + reproducibility
+
+- One command: `python -m forge.submission`. It runs a self-check that every
+  submission deliverable is present, then a deterministic offline mock re-run of
+  the full four-agent loop against in-process fakes — no network and no
+  `ANTHROPIC_API_KEY` required. Use `--check` for the artifact check alone or
+  `--reproduce` for the mock re-run alone.
+
 
 ## Engineering Deliverables
 Threat Model [here](THREAT_MODEL.md)\
