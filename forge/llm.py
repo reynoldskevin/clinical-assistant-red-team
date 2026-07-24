@@ -6,7 +6,9 @@ injected in tests (no network, no real `anthropic` package required).
 
 from __future__ import annotations
 
+import json
 import time
+import urllib.request
 from dataclasses import dataclass
 from typing import Any, Callable, Protocol, runtime_checkable
 
@@ -149,3 +151,102 @@ class ClaudeClient:
 
         # Unreachable, but keeps type checkers content.
         raise LLMError(f"LLM call failed: {last_exc}")
+
+
+def _urllib_transport(
+    *, api_key: str | None, timeout: int
+) -> Callable[[str, dict], dict]:
+    """Build a default urllib-based transport that POSTs JSON and raises on non-2xx.
+
+    Not exercised by tests (they inject a transport), but must be import-safe.
+    """
+
+    def transport(url: str, body: dict) -> dict:
+        data = json.dumps(body).encode("utf-8")
+        headers = {"Content-Type": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            status = getattr(resp, "status", 200)
+            if not (200 <= int(status) < 300):
+                raise LLMError(f"HTTP {status} from {url}")
+            return json.loads(resp.read().decode("utf-8"))
+
+    return transport
+
+
+class OpenAICompatClient:
+    """OpenAI-compatible chat client (Ollama / any /v1/chat/completions endpoint)."""
+
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        api_key: str | None = None,
+        transport: Callable[[str, dict], dict] | None = None,
+        path: str = "/v1/chat/completions",
+        timeout: int = 30,
+    ) -> None:
+        self._url = base_url.rstrip("/") + path
+        self._api_key = api_key
+        if transport is None:
+            transport = _urllib_transport(api_key=api_key, timeout=timeout)
+        self._transport = transport
+
+    def complete(
+        self,
+        messages: list[dict[str, Any]],
+        model: str,
+        max_tokens: int = 1024,
+        system: str | None = None,
+        temperature: float = 0.0,
+    ) -> LLMResponse:
+        msgs = list(messages)
+        if system is not None:
+            msgs = [{"role": "system", "content": system}, *msgs]
+
+        body = {"model": model, "messages": msgs, "max_tokens": max_tokens}
+
+        try:
+            data = self._transport(self._url, body)
+        except Exception as exc:  # noqa: BLE001 - re-raised as LLMError
+            raise LLMError(f"OpenAI-compat transport failed: {exc}") from exc
+
+        try:
+            text = data["choices"][0]["message"]["content"]
+            input_tokens = data["usage"]["prompt_tokens"]
+            output_tokens = data["usage"]["completion_tokens"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise LLMError(
+                f"Malformed OpenAI-compat response: {exc}"
+            ) from exc
+
+        if text is None:
+            raise LLMError("OpenAI-compat response contained no content")
+
+        return LLMResponse(
+            text=text,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            model=data.get("model") or model,
+        )
+
+
+def build_llm_client(
+    role: str,
+    config: Any,
+    *,
+    transport: Callable[[str, dict], dict] | None = None,
+    claude_client: Any = None,
+    api_key: str | None = None,
+) -> LLMClient:
+    """Build the configured LLMClient for a role from ``config.providers``."""
+    provider = config.providers.get(role, {}) if config.providers else {}
+    if provider.get("kind") == "openai-compat":
+        return OpenAICompatClient(
+            base_url=provider["base_url"],
+            api_key=api_key or config.anthropic_api_key,
+            transport=transport,
+        )
+    return ClaudeClient(api_key=config.anthropic_api_key, client=claude_client)
