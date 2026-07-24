@@ -74,7 +74,26 @@ _BASELINE = [
             """,
         ],
     ),
+    Migration(
+        name="0002_indexing_and_run_id",
+        statements=[
+            "CREATE INDEX IF NOT EXISTS idx_events_kind ON events(kind)",
+            "CREATE INDEX IF NOT EXISTS idx_findings_status ON findings(status)",
+            # NONE affinity (no declared type) so run_id round-trips without
+            # coercing integer run-ids to strings.
+            "ALTER TABLE findings ADD COLUMN run_id",
+            "ALTER TABLE cost ADD COLUMN run_id",
+            "CREATE INDEX IF NOT EXISTS idx_findings_run_id ON findings(run_id)",
+            "CREATE INDEX IF NOT EXISTS idx_cost_run_id ON cost(run_id)",
+            "UPDATE findings SET run_id = json_extract(data, '$.run_id') "
+            "WHERE run_id IS NULL AND data IS NOT NULL",
+            "UPDATE cost SET run_id = json_extract(data, '$.run_id') "
+            "WHERE run_id IS NULL AND data IS NOT NULL",
+        ],
+    ),
 ]
+
+_VALID_SEVERITIES = {"critical", "high", "medium", "low"}
 
 
 class Store:
@@ -172,18 +191,25 @@ class Store:
     # ------------------------------------------------------------------ #
     # findings
     # ------------------------------------------------------------------ #
-    _FINDING_NATIVE = {"severity", "attack_category", "target_version", "status"}
+    _FINDING_NATIVE = {"severity", "attack_category", "target_version", "status", "run_id"}
 
     def insert_finding(self, data: dict) -> int:
+        severity = data.get("severity")
+        if not severity or not str(severity).strip() or severity not in _VALID_SEVERITIES:
+            raise ValueError(
+                f"insert_finding: severity must be one of {sorted(_VALID_SEVERITIES)}, "
+                f"got {severity!r}"
+            )
         native, extra = self._split(data, self._FINDING_NATIVE)
         cur = self.conn.execute(
-            "INSERT INTO findings (severity, attack_category, target_version, status, data) "
-            "VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO findings (severity, attack_category, target_version, status, run_id, data) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
             (
                 native.get("severity"),
                 native.get("attack_category"),
                 native.get("target_version"),
                 native.get("status"),
+                native.get("run_id"),
                 json.dumps(extra),
             ),
         )
@@ -192,7 +218,7 @@ class Store:
 
     def get_finding(self, finding_id: int) -> dict | None:
         row = self.conn.execute(
-            "SELECT id, severity, attack_category, target_version, status, data "
+            "SELECT id, severity, attack_category, target_version, status, run_id, data "
             "FROM findings WHERE id=?",
             (finding_id,),
         ).fetchone()
@@ -220,7 +246,7 @@ class Store:
 
     def list_findings(self, **filters) -> list[dict]:
         native, _ = self._split(filters, self._FINDING_NATIVE)
-        sql = "SELECT id, severity, attack_category, target_version, status, data FROM findings"
+        sql = "SELECT id, severity, attack_category, target_version, status, run_id, data FROM findings"
         params: list = []
         if native:
             clauses = " AND ".join(f"{k}=?" for k in native)
@@ -233,6 +259,9 @@ class Store:
     # events
     # ------------------------------------------------------------------ #
     def append_event(self, data: dict) -> int:
+        kind = data.get("kind")
+        if not kind or not str(kind).strip():
+            raise ValueError("append_event: kind is required and must be non-blank")
         native, extra = self._split(data, {"kind"})
         extra.setdefault("ts", time.time())
         cur = self.conn.execute(
@@ -252,17 +281,39 @@ class Store:
     # cost
     # ------------------------------------------------------------------ #
     def insert_cost(self, data: dict) -> int:
+        native, extra = self._split(data, {"run_id"})
         cur = self.conn.execute(
-            "INSERT INTO cost (data) VALUES (?)", (json.dumps(data),)
+            "INSERT INTO cost (run_id, data) VALUES (?, ?)",
+            (native.get("run_id"), json.dumps(extra)),
         )
         self.conn.commit()
         return int(cur.lastrowid)
 
     def get_costs(self) -> list[dict]:
         rows = self.conn.execute(
-            "SELECT id, data FROM cost ORDER BY id ASC"
+            "SELECT id, run_id, data FROM cost ORDER BY id ASC"
         ).fetchall()
         return [self._row_to_dict(r) for r in rows]
+
+    # ------------------------------------------------------------------ #
+    # retention
+    # ------------------------------------------------------------------ #
+    def prune(self, before_id=None, keep_last=None) -> int:
+        """Delete events/cost rows with id <= before_id (inclusive). Returns count.
+
+        Idempotent; never touches findings/regression_cases/attack_attempts.
+        ``keep_last`` is accepted but currently unused.
+        """
+        if before_id is None:
+            return 0
+        removed = 0
+        for table in ("events", "cost"):
+            cur = self.conn.execute(
+                f"DELETE FROM {table} WHERE id <= ?", (before_id,)
+            )
+            removed += cur.rowcount
+        self.conn.commit()
+        return int(removed)
 
     # ------------------------------------------------------------------ #
     def close(self) -> None:
