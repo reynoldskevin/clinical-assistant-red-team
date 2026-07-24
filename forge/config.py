@@ -97,6 +97,29 @@ class Config:
         )
 
 
+def resolve_reports_dir(env: Optional[Mapping[str, str]] = None) -> str:
+    """Resolve the vuln-report directory, volume-aware.
+
+    Precedence:
+      1. A non-blank ``FORGE_REPORTS_DIR`` is returned verbatim.
+      2. If a Railway volume is mounted (``RAILWAY_VOLUME_MOUNT_PATH``),
+         default to ``<mount>/reports`` so reports survive redeploys.
+      3. Otherwise the plain relative ``"reports"`` (local dev default).
+    """
+    if env is None:
+        env = os.environ
+
+    explicit = env.get("FORGE_REPORTS_DIR")
+    if explicit is not None and explicit.strip():
+        return explicit
+
+    mount = env.get("RAILWAY_VOLUME_MOUNT_PATH")
+    if mount:
+        return os.path.join(mount, "reports")
+
+    return "reports"
+
+
 def _parse_float(raw: Optional[str], default: float, key: str) -> float:
     if raw is None or raw == "":
         return default

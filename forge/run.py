@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from forge.access import TargetRegistry
-from forge.config import Config
+from forge.config import Config, resolve_reports_dir
 from forge.evals import load_cases
 from forge.judge import JudgeAgent
 from forge.llm import ClaudeClient, LLMResponse
@@ -487,7 +487,7 @@ def build_autonomous_runner(
         seeds_by_category=seeds_by_category,
     )
     documentation = DocumentationAgent(
-        store, reports_dir=os.environ.get("FORGE_REPORTS_DIR", "reports")
+        store, reports_dir=resolve_reports_dir()
     )
     harness = RegressionHarness(store, adapter, judge, pid=pid)
     return Runner(
