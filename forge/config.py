@@ -49,6 +49,7 @@ class Config:
     models: dict = field(default_factory=dict)
     budgets: dict = field(default_factory=dict)
     providers: dict = field(default_factory=dict)
+    judge_models: list = field(default_factory=list)
 
     @classmethod
     def from_env(cls, env: Optional[Mapping[str, str]] = None) -> "Config":
@@ -86,6 +87,12 @@ class Config:
             for role in _MODEL_DEFAULTS
         }
 
+        judge_models = [
+            m.strip()
+            for m in (env.get("FORGE_JUDGE_PANEL") or "").split(",")
+            if m.strip()
+        ]
+
         return cls(
             anthropic_api_key=env["ANTHROPIC_API_KEY"],
             target_base_url=env["TARGET_BASE_URL"],
@@ -94,6 +101,7 @@ class Config:
             models=models,
             budgets=budgets,
             providers=providers,
+            judge_models=judge_models,
         )
 
 
