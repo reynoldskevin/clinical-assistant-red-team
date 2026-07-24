@@ -294,7 +294,7 @@ _STYLE = """
 
   /* ---- owasp coverage ---- */
   .heat { display: grid; gap: 8px; }
-  #owasp-heat { min-height: 300px; max-height: 600px; overflow-y: auto; }
+  #owasp-heat { min-height: 300px; max-height: 500px; overflow-y: auto; }
   .heatrow { display: grid; grid-template-columns: 400px 1fr 35px; align-items: center; gap: 9px; font-size: 12px; }
   .heatrow .idc { font-family: var(--mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .heatrow .idc b { color: var(--fg); }
@@ -672,8 +672,12 @@ _SCRIPT = r"""
     document.getElementById("trend-halo").setAttribute("cx", last[0].toFixed(0));
     document.getElementById("trend-halo").setAttribute("cy", last[1].toFixed(0));
     num.textContent = pct(trend[n - 1].pass_rate) + "%";
-    var delta = pct(trend[n - 1].pass_rate) - pct(trend[0].pass_rate);
-    cap.textContent = (delta >= 0 ? "▲ +" : "▼ ") + delta + " pts";
+    if (n >= 2) {
+      var delta = pct(trend[n - 1].pass_rate) - pct(trend[n - 2].pass_rate);
+      cap.textContent = (delta >= 0 ? "▲ +" : "▼ ") + delta + " pts";
+    } else {
+      cap.textContent = "";
+    }
     sub.textContent = trend.map(function (p) {
       return esc(p.version == null ? "?" : p.version) + " " + pct(p.pass_rate) + "%";
     }).join(" · ");

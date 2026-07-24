@@ -19,6 +19,6 @@ def test_owasp_heat_caps_height_and_scrolls():
     m = re.search(r"#owasp-heat\s*\{([^}]*)\}", html)
     assert m, "#owasp-heat rule must exist"
     body = m.group(1)
-    assert re.search(r"max-height:\s*600px", body)
+    assert re.search(r"max-height:\s*500px", body)
     assert re.search(r"overflow-y:\s*auto", body)
     assert re.search(r"min-height:\s*300px", body)  # 057 preserved
