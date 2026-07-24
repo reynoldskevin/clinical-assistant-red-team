@@ -48,6 +48,7 @@ class Config:
     db_path: str = _DEFAULT_DB_PATH
     models: dict = field(default_factory=dict)
     budgets: dict = field(default_factory=dict)
+    providers: dict = field(default_factory=dict)
 
     @classmethod
     def from_env(cls, env: Optional[Mapping[str, str]] = None) -> "Config":
@@ -77,6 +78,14 @@ class Config:
             for key, default in _BUDGET_DEFAULTS.items()
         }
 
+        providers = {
+            role: {
+                "kind": env.get(f"FORGE_CLIENT_{role.upper()}", "claude"),
+                "base_url": env.get(f"FORGE_CLIENT_{role.upper()}_BASE_URL"),
+            }
+            for role in _MODEL_DEFAULTS
+        }
+
         return cls(
             anthropic_api_key=env["ANTHROPIC_API_KEY"],
             target_base_url=env["TARGET_BASE_URL"],
@@ -84,6 +93,7 @@ class Config:
             db_path=env.get("DB_PATH") or _DEFAULT_DB_PATH,
             models=models,
             budgets=budgets,
+            providers=providers,
         )
 
 
