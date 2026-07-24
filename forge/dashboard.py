@@ -553,6 +553,7 @@ _SCRIPT = r"""
   var headerActive = false, runStartedAt = null, lastRunEnded = null, clientRunStart = null;
   // start-run button: pending from click until the run goes live
   var pendingStart = false;
+  var pollActive = false;
 
   function setBtnBusy(on) {
     var btn = document.getElementById("start-run");
@@ -761,6 +762,11 @@ _SCRIPT = r"""
   // and auto-refresh pills. Timers are plain vertically-centred text, not pills.
   function renderHeader(state) {
     headerActive = !!state.run_active;
+    if (headerActive) {
+      pollActive = true;
+    } else if (!pendingStart) {
+      pollActive = false;
+    }
     runStartedAt = (typeof state.run_started_at === "number") ? state.run_started_at : null;
     lastRunEnded = (typeof state.last_run_ended === "number") ? state.last_run_ended : null;
     if (!headerActive) clientRunStart = null;
@@ -806,9 +812,10 @@ _SCRIPT = r"""
       localStorage.setItem("forge_run_token", token);
       pendingStart = true;
       setBtnBusy(true);
+      pollActive = true;
       // failsafe: stop the spinner if the run never shows up as active
       setTimeout(function () {
-        if (pendingStart) { pendingStart = false; setBtnBusy(false); }
+        if (pendingStart) { pendingStart = false; setBtnBusy(false); pollActive = false; }
       }, 30000);
       fetch("/api/run", { method: "POST", headers: { "X-Run-Token": token } })
         .then(function (r) {
@@ -959,7 +966,8 @@ _SCRIPT = r"""
       .then(function () { polling = false; });
   }
   function tick() {
-    paintMeta();                 // keep the elapsed counter live every second
+    paintMeta();                 // keep the elapsed clock live every second
+    if (!pollActive) return;     // idle: no polling until a run is active
     if (polling) return;
     left -= 1;
     if (left <= 0) { poll(); left = REFRESH_S; }
@@ -970,6 +978,7 @@ _SCRIPT = r"""
   try {
     initial = JSON.parse(document.getElementById("initial-state").textContent);
   } catch (e) { initial = null; }
+  pollActive = !!(initial && initial.run_active);
   wireStartButton();
   wireReports();
   render(initial);
