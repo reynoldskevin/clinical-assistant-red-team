@@ -12,6 +12,7 @@ import json
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from forge.config import resolve_reports_dir
 from forge.observability import Observability
 from forge.scoping import RunScopedStore, current_run
 from forge.store import Store  # noqa: F401  (documents the store dependency)
@@ -1096,7 +1097,7 @@ def make_server(store, *, host="0.0.0.0", port=8000, cases=None,
 
     launcher = run_launcher or _default_run_launcher
     token_cfg = run_token if run_token is not None else os.environ.get("FORGE_RUN_TOKEN", "")
-    reports_dir_cfg = reports_dir if reports_dir is not None else os.environ.get("FORGE_REPORTS_DIR", "reports")
+    reports_dir_cfg = reports_dir if reports_dir is not None else resolve_reports_dir()
 
     def state_provider():
         return build_state(Observability(store, cases=cases))
