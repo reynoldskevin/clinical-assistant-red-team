@@ -84,25 +84,19 @@ Result: charts went from ~33 s to ~1.5 s (measured on the live demo).
 - **Retention:** transcripts are retained for the life of the evaluation database
   and can be cleared by deleting the SQLite DB file.
 
-## Running Instructions
-
-- Run one attack category: `forge run --category <c>` (or
-  `python -m forge run --category <c>`).
-- Serve the dashboard: `forge serve` (or `python -m forge serve`).
-- Point the adapter at a live target by setting `TARGET_BASE_URL`; leave it unset
-  to run against the injected transport and skip the live smoke test.
-
-### Submission self-check + reproducibility
-
-- One command: `python -m forge.submission`. It runs a self-check that every
-  submission deliverable is present, then a deterministic offline mock re-run of
-  the full four-agent loop against in-process fakes — no network and no
-  `ANTHROPIC_API_KEY` required. Use `--check` for the artifact check alone or
-  `--reproduce` for the mock re-run alone.
-
-
 ## Engineering Deliverables
+
+### MVP
+
 Threat Model [here](THREAT_MODEL.md)\
 Architecture [here](ARCHITECTURE.md)\
 Architecture Diagram [here](ARCHITECTURE_DIAGRAM.md)\
 Eval Suite Results [here](EVAL_RESULTS.md)
+
+### Final Submission
+
+Users [here](USERS.md)\
+AI Cost Analysis [here](AI_COST_ANALYSIS.md)\
+Vulnerability Reports [here](/reports/)\
+Eval Dataset [here](/evals/)\
+Resolved Vulnerabilities Documentation [here](RESOLVED.md)
