@@ -294,7 +294,7 @@ _STYLE = """
 
   /* ---- owasp coverage ---- */
   .heat { display: grid; gap: 8px; }
-  #owasp-heat { min-height: 300px; }
+  #owasp-heat { min-height: 300px; max-height: 600px; overflow-y: auto; }
   .heatrow { display: grid; grid-template-columns: 400px 1fr 35px; align-items: center; gap: 9px; font-size: 12px; }
   .heatrow .idc { font-family: var(--mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .heatrow .idc b { color: var(--fg); }
