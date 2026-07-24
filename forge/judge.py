@@ -309,6 +309,65 @@ class JudgeAgent:
             raise JudgeError(f"LLM output is not a well-formed verdict: {exc}") from exc
 
 
+class JudgePanel:
+    """Majority-vote ensemble of judge-like members.
+
+    Duck-types :meth:`JudgeAgent.evaluate` so a ``Runner``/``RegressionHarness``
+    can use a panel in place of a single judge. Each member is called exactly
+    once; the panel returns the STRICT-majority verdict, or ``tie_breaker`` when
+    no single verdict wins outright. Confidence and OWASP tags are aggregated
+    over the members that voted for the winning verdict.
+    """
+
+    def __init__(self, members, *, tie_breaker: str = "partial") -> None:
+        self._members = list(members)
+        self._tie_breaker = tie_breaker
+
+    def evaluate(self, attempt, *, ground_truth=None) -> Verdict:
+        verdicts = [
+            m.evaluate(attempt, ground_truth=ground_truth) for m in self._members
+        ]
+
+        counts: dict[str, int] = {}
+        for v in verdicts:
+            counts[v.verdict] = counts.get(v.verdict, 0) + 1
+
+        top = max(counts.values())
+        leaders = [k for k, c in counts.items() if c == top]
+
+        if len(leaders) == 1:
+            winner = leaders[0]
+            winning = [v for v in verdicts if v.verdict == winner]
+        else:
+            # No strict single winner → conservative tie-breaker.
+            winner = self._tie_breaker
+            winning = [v for v in verdicts if v.verdict == winner]
+            if not winning:
+                # No members share the tie-breaker verdict; fall back to all.
+                winning = verdicts
+
+        confidence = sum(v.confidence for v in winning) / len(winning)
+        confidence = min(1.0, max(0.0, confidence))
+
+        owasp_web = list({tag for v in winning for tag in v.owasp_web})
+        owasp_llm = list({tag for v in winning for tag in v.owasp_llm})
+
+        win_count = counts.get(winner, len(winning))
+        total = len(verdicts)
+        rationale = f"{win_count}/{total} {winner}"
+
+        rubric_version = winning[0].rubric_version if winning else RUBRIC_VERSION
+
+        return Verdict(
+            verdict=winner,
+            confidence=confidence,
+            rationale=rationale,
+            owasp_web=owasp_web,
+            owasp_llm=owasp_llm,
+            rubric_version=rubric_version,
+        )
+
+
 def _fixture_attempt(category: str, prompt: str, answer: str) -> AttackAttempt:
     return AttackAttempt(
         category=category,
