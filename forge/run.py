@@ -94,6 +94,30 @@ class MeteredLLM:
 
 
 # --------------------------------------------------------------------------- #
+# Builders (opt-in Judge panel + per-role red-team client — ticket 067)
+# --------------------------------------------------------------------------- #
+def build_judge(llm, config):
+    """Single JudgeAgent by default; a JudgePanel when >=2 models are configured."""
+    models = config.judge_models or [config.models["judge"]]
+    if len(models) >= 2:
+        from forge.judge import JudgePanel
+
+        return JudgePanel([JudgeAgent(llm, model=m) for m in models])
+    return JudgeAgent(llm, model=models[0])
+
+
+def build_red_team_llm(config, meter, *, claude_client=None, transport=None):
+    """MeteredLLM wrapping the per-role red_team client (Claude by default, or an
+    OpenAI-compatible/local client when FORGE_CLIENT_RED_TEAM=openai-compat)."""
+    from forge.llm import build_llm_client
+
+    inner = build_llm_client(
+        "red_team", config, claude_client=claude_client, transport=transport
+    )
+    return MeteredLLM(inner, meter)
+
+
+# --------------------------------------------------------------------------- #
 # Summaries
 # --------------------------------------------------------------------------- #
 @dataclass
@@ -563,8 +587,6 @@ def main(argv=None) -> int:
     config = Config.from_env()
 
     meter = CostMeter(PRICES)
-    base_llm = ClaudeClient(api_key=config.anthropic_api_key)
-    metered = MeteredLLM(base_llm, meter)
 
     store = Store(config.db_path)
     registry = TargetRegistry({"copilot": {"base_url": config.target_base_url}})
@@ -576,8 +598,11 @@ def main(argv=None) -> int:
         store=store,
     )
 
-    red_team = RedTeamAgent(metered, adapter, model=config.models["red_team"])
-    judge = JudgeAgent(metered, model=config.models["judge"])
+    rt_llm = build_red_team_llm(config, meter)
+    red_team = RedTeamAgent(rt_llm, adapter, model=config.models["red_team"])
+
+    judge_llm = MeteredLLM(ClaudeClient(api_key=config.anthropic_api_key), meter)
+    judge = build_judge(judge_llm, config)
 
     cases = load_cases()
     if not args.suite:
