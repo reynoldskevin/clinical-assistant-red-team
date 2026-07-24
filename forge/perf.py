@@ -12,6 +12,14 @@ from __future__ import annotations
 
 import math
 import statistics
+import time
+import tracemalloc
+
+# Tight-ish CI budget for the deterministic, LLM-free full-DB regression scan
+# (replay + Judge over every persisted case). This gates the platform's own
+# scan/replay overhead — NOT real LLM/target latency — so it is intentionally
+# small. Verified in tests/test_perf_baseline.py::test_regression_scan_meets_slo.
+REGRESSION_SLO_SECONDS = 5.0
 
 
 def _stats(latencies: list[float]) -> dict:
@@ -66,3 +74,40 @@ def latency_view(events) -> dict:
         by_agent[agent] = agent_stats
 
     return {"overall": overall, "by_agent": by_agent}
+
+
+def baseline_run(cases: int = 100, *, transport=None, store=None) -> dict:
+    """Profile the offline in-process platform load over ``cases`` ask() ops.
+
+    Wraps :func:`forge.load_test.run_load` (its own default offline transport +
+    real ``time.perf_counter`` clock — no fake clock) in wall / CPU / peak-memory
+    profiling. Needs no network and no ANTHROPIC_API_KEY.
+
+    Returns a dict with at least ``cases``, ``wall_s``, ``cpu_s``,
+    ``peak_mem_kb``, ``throughput_cps`` (cases per wall-second, div-by-zero
+    guarded to 0.0), and ``load_summary`` (the ``run_load`` return dict).
+    """
+    from forge.load_test import run_load
+
+    started_here = not tracemalloc.is_tracing()
+    if started_here:
+        tracemalloc.start()
+
+    wall_start = time.perf_counter()
+    cpu_start = time.process_time()
+    load_summary = run_load(cases=cases, transport=transport, store=store)
+    cpu_s = time.process_time() - cpu_start
+    wall_s = time.perf_counter() - wall_start
+
+    _current, peak = tracemalloc.get_traced_memory()
+    if started_here:
+        tracemalloc.stop()
+
+    return {
+        "cases": cases,
+        "wall_s": max(wall_s, 0.0),
+        "cpu_s": max(cpu_s, 0.0),
+        "peak_mem_kb": peak / 1024.0,
+        "throughput_cps": cases / wall_s if wall_s > 0 else 0.0,
+        "load_summary": load_summary,
+    }
