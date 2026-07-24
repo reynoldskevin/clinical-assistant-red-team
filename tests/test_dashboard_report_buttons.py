@@ -25,11 +25,12 @@ def _html():
 # --------------------------------------------------------------------------- #
 # (1) exploits button visibility
 # --------------------------------------------------------------------------- #
-def test_exploits_report_button_toggled_by_exploit_count():
+def test_exploits_report_button_toggled_by_report_availability():
     html = _html()
     assert 'id="view-reports"' in html
-    # renderKpis hides/shows it based on k.exploits > 0
-    assert re.search(r'\.hidden\s*=\s*!\(\s*k\.exploits\s*>\s*0\s*\)', html)
+    # ticket 070: renderKpis shows it based on report availability (k.reports > 0),
+    # not the run's exploit count — so a partial-only run with reports still surfaces it.
+    assert re.search(r'\.hidden\s*=\s*!\(\s*k\.reports\s*>\s*0\s*\)', html)
 
 
 # --------------------------------------------------------------------------- #
