@@ -29,7 +29,7 @@ def _version_sort_key(version):
         return (1, [])
 
 
-def build_state(observability) -> dict:
+def build_state(observability, *, reports_dir=None) -> dict:
     """A JSON-serializable state dict scoped to the CURRENT run.
 
     Every view (KPIs, pass/fail, coverage, outcomes, cost, feed) reflects only
@@ -56,6 +56,7 @@ def build_state(observability) -> dict:
         "resilience": overall["pass_rate"],
         "attempts": overall["attempts"],
         "exploits": overall["exploits"],
+        "reports": len(load_reports(reports_dir)) if reports_dir is not None else 0,
         "total_usd": cost["total_usd"],
         "usd_per_attempt": cost["usd_per_attempt"],
     }
@@ -608,7 +609,7 @@ _SCRIPT = r"""
       usd(k.usd_per_attempt) + " / attempt";
     document.getElementById("kpi-exploits-sub").textContent =
       k.exploits + (k.exploits === 1 ? " exploit" : " exploits");
-    var vr = document.getElementById("view-reports"); if (vr) vr.hidden = !(k.exploits > 0);
+    var vr = document.getElementById("view-reports"); if (vr) vr.hidden = !(k.reports > 0);
   }
 
   function renderPassFail(pf) {
@@ -1100,7 +1101,7 @@ def make_server(store, *, host="0.0.0.0", port=8000, cases=None,
     reports_dir_cfg = reports_dir if reports_dir is not None else resolve_reports_dir()
 
     def state_provider():
-        return build_state(Observability(store, cases=cases))
+        return build_state(Observability(store, cases=cases), reports_dir=reports_dir_cfg)
 
     def reports_provider():
         return load_reports(reports_dir_cfg)
